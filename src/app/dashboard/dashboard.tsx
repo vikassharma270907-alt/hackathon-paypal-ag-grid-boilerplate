@@ -51,14 +51,46 @@ import { buildStudioData, hasData } from './studio/data';
 import { agStudioPayPalTheme } from './studio/theme';
 import { useReports } from './use-reports';
 
-// VeriSettle Multi-Sponsor Components
+// VeriSettle Multi-Sponsor & Feature Components
 import { JudgeTestBar } from './components/judge-test-bar';
 import { RelationalTableWorkspace } from './components/relational-table-workspace';
 import { BryntumGanttPanel } from './components/bryntum-gantt-panel';
 import { Channel3CatalogExplorer } from './components/channel3-catalog-explorer';
 import { SkepticDisputeSimulator } from './components/skeptic-dispute-simulator';
 import { CosmosAuditDrawer } from './components/cosmos-audit-drawer';
-import { ShieldCheck, BarChart3, Database, Layers, Calculator, Terminal, TrendingUp, CheckCircle2, DollarSign } from 'lucide-react';
+import { OverviewImpactDashboard } from './components/overview-impact-dashboard';
+import { InvoiceIntelligencePanel } from './components/invoice-intelligence-panel';
+import { EvidenceGraphWorkspace } from './components/evidence-graph-workspace';
+import { FourWayReconciliationPanel } from './components/four-way-reconciliation-panel';
+import { TransactionRiskPanel } from './components/transaction-risk-panel';
+import { PaymentMandatesPanel } from './components/payment-mandates-panel';
+import { SettlementOperationsPanel } from './components/settlement-operations-panel';
+import { DisputeCopilotPanel } from './components/dispute-copilot-panel';
+import { JudgeDemoModePanel } from './components/judge-demo-mode-panel';
+import { SettingsIntegrationsPanel } from './components/settings-integrations-panel';
+
+import {
+  ShieldCheck,
+  BarChart3,
+  Database,
+  Layers,
+  Calculator,
+  Terminal,
+  TrendingUp,
+  CheckCircle2,
+  DollarSign,
+  Network,
+  FileCheck2,
+  Brain,
+  Lock,
+  CreditCard,
+  ShieldAlert,
+  Play,
+  Settings,
+  Sparkles,
+  LayoutDashboard,
+  Clock,
+} from 'lucide-react';
 
 if (process.env.NODE_ENV !== 'production') {
   enableStudioDevValidations();
@@ -85,6 +117,7 @@ export function Dashboard(props: DashboardProps) {
 
 function ReportsDashboard({ data, licenseKey, aiModels }: DashboardProps) {
   const [activeTab, setActiveTab] = useState<'COMMAND_CENTER' | 'AG_STUDIO'>('COMMAND_CENTER');
+  const [activeSection, setActiveSection] = useState<string>('OVERVIEW');
   const { store, latest, update, editReport } = useReports();
   const apiRef = useRef<AgStudioApi | null>(null);
 
@@ -213,6 +246,21 @@ function ReportsDashboard({ data, licenseKey, aiModels }: DashboardProps) {
   const passRate = data.mlAudits.filter((a) => a.matchStatus === 'MATCHED_OK').length / (data.mlAudits.length || 1);
   const avgRisk = data.mlAudits.reduce((acc, a) => acc + a.gnnLstmRiskScore, 0) / (data.mlAudits.length || 1);
 
+  const navigationItems = [
+    { id: 'OVERVIEW', label: '1. Overview Dashboard', icon: <LayoutDashboard className="w-3.5 h-3.5" /> },
+    { id: 'INVOICE_INTELLIGENCE', label: '2. Invoice Intelligence', icon: <Sparkles className="w-3.5 h-3.5" /> },
+    { id: 'EVIDENCE_GRAPH', label: '3. Evidence Graph', icon: <Network className="w-3.5 h-3.5" /> },
+    { id: 'FOUR_WAY_RECONCILIATION', label: '4. Four-Way Reconciliation', icon: <FileCheck2 className="w-3.5 h-3.5" /> },
+    { id: 'TRANSACTION_RISK', label: '5. Transaction Risk', icon: <Brain className="w-3.5 h-3.5" /> },
+    { id: 'PAYMENT_MANDATES', label: '6. Payment Mandates', icon: <Lock className="w-3.5 h-3.5" /> },
+    { id: 'SETTLEMENT_OPERATIONS', label: '7. Settlement Operations', icon: <CreditCard className="w-3.5 h-3.5" /> },
+    { id: 'DISPUTE_COPILOT', label: '8. Dispute Copilot', icon: <ShieldAlert className="w-3.5 h-3.5" /> },
+    { id: 'AG_GRID_LEDGER', label: '9. AG Grid Ledger', icon: <BarChart3 className="w-3.5 h-3.5" /> },
+    { id: 'BRYNTUM_TIMELINE', label: '10. Bryntum Timeline', icon: <Clock className="w-3.5 h-3.5" /> },
+    { id: 'JUDGE_DEMO', label: '11. Judge Demo Mode', icon: <Play className="w-3.5 h-3.5 text-blue-400" /> },
+    { id: 'SETTINGS', label: '12. Settings & Integrations', icon: <Settings className="w-3.5 h-3.5" /> },
+  ];
+
   return (
     <div className="flex flex-col min-h-screen bg-slate-950 text-slate-100 font-sans">
       {/* 1. TOP: Judge 1-Click Live Sandbox Test Bar */}
@@ -253,73 +301,48 @@ function ReportsDashboard({ data, licenseKey, aiModels }: DashboardProps) {
         </div>
       </div>
 
+      {/* 2b. 12-Section Financial Operations Navigation */}
+      {activeTab === 'COMMAND_CENTER' && (
+        <div className="bg-slate-950 border-b border-slate-800 px-6 py-2 overflow-x-auto scrollbar-thin">
+          <div className="flex items-center gap-1.5 min-w-max">
+            {navigationItems.map((item) => {
+              const isActive = activeSection === item.id;
+              return (
+                <button
+                  key={item.id}
+                  onClick={() => setActiveSection(item.id)}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                    isActive
+                      ? 'bg-blue-600/20 text-blue-400 border border-blue-500/50 shadow-sm'
+                      : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900 border border-transparent'
+                  }`}
+                >
+                  {item.icon}
+                  <span>{item.label}</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
       {/* 3. MAIN CONTENT */}
       {activeTab === 'COMMAND_CENTER' ? (
         <main className="flex-1 p-6 max-w-7xl mx-auto w-full space-y-6">
-          {/* Executive KPI Overview Cards */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 shadow">
-              <div className="flex items-center justify-between text-slate-400 text-xs mb-1">
-                <span>Active Escrow Under Hold</span>
-                <DollarSign className="w-4 h-4 text-blue-400" />
-              </div>
-              <div className="text-2xl font-bold font-mono text-white">$2,450.00</div>
-              <div className="text-[11px] text-emerald-400 mt-1 flex items-center gap-1">
-                <span>30% Auth placed via Orders v2</span>
-              </div>
-            </div>
+          {activeSection === 'OVERVIEW' && <OverviewImpactDashboard data={data} />}
+          {activeSection === 'INVOICE_INTELLIGENCE' && <InvoiceIntelligencePanel />}
+          {activeSection === 'EVIDENCE_GRAPH' && <EvidenceGraphWorkspace />}
+          {activeSection === 'FOUR_WAY_RECONCILIATION' && <FourWayReconciliationPanel />}
+          {activeSection === 'TRANSACTION_RISK' && <TransactionRiskPanel />}
+          {activeSection === 'PAYMENT_MANDATES' && <PaymentMandatesPanel />}
+          {activeSection === 'SETTLEMENT_OPERATIONS' && <SettlementOperationsPanel />}
+          {activeSection === 'DISPUTE_COPILOT' && <DisputeCopilotPanel />}
+          {activeSection === 'AG_GRID_LEDGER' && <RelationalTableWorkspace data={data} />}
+          {activeSection === 'BRYNTUM_TIMELINE' && <BryntumGanttPanel />}
+          {activeSection === 'JUDGE_DEMO' && <JudgeDemoModePanel />}
+          {activeSection === 'SETTINGS' && <SettingsIntegrationsPanel />}
 
-            <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 shadow">
-              <div className="flex items-center justify-between text-slate-400 text-xs mb-1">
-                <span>3-Way Match Pass Rate</span>
-                <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-              </div>
-              <div className="text-2xl font-bold font-mono text-emerald-400">
-                {(passRate * 100).toFixed(0)}%
-              </div>
-              <div className="text-[11px] text-slate-400 mt-1">
-                LayoutLMv3 vs Channel3 vs PayPal
-              </div>
-            </div>
-
-            <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 shadow">
-              <div className="flex items-center justify-between text-slate-400 text-xs mb-1">
-                <span>Bayesian Model Avg Risk</span>
-                <TrendingUp className="w-4 h-4 text-purple-400" />
-              </div>
-              <div className="text-2xl font-bold font-mono text-purple-400">
-                {avgRisk.toFixed(2)}
-              </div>
-              <div className="text-[11px] text-slate-400 mt-1">
-                Leak-Free XGBoost + GNN/LSTM EVT
-              </div>
-            </div>
-
-            <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 shadow">
-              <div className="flex items-center justify-between text-slate-400 text-xs mb-1">
-                <span>Margin Preserved (Skeptic)</span>
-                <ShieldCheck className="w-4 h-4 text-amber-400" />
-              </div>
-              <div className="text-2xl font-bold font-mono text-amber-400">+$2,450.00</div>
-              <div className="text-[11px] text-slate-400 mt-1">
-                Dilutive 2/10 Net 30 blocked
-              </div>
-            </div>
-          </div>
-
-          {/* Section 1: AG Grid 10-Table Relational Ledger */}
-          <RelationalTableWorkspace data={data} />
-
-          {/* Section 2: Bryntum Gantt Escrow Milestone Schedule */}
-          <BryntumGanttPanel />
-
-          {/* Section 3: Channel3 Multi-Merchant Catalog Discovery & Anomaly Z-Score Explorer */}
-          <Channel3CatalogExplorer />
-
-          {/* Section 4: Invoicing v2 Skeptic Gate & Disputes v1 Simulator */}
-          <SkepticDisputeSimulator />
-
-          {/* Section 5: Cosmos.AI MCP & PayPal REST Audit Drawer */}
+          {/* Forensic Audit Drawer always accessible across all views */}
           <CosmosAuditDrawer />
         </main>
       ) : (
