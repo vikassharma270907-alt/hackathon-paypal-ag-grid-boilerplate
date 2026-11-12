@@ -274,6 +274,17 @@ export default function JudgesGuidePage() {
                   </td>
                 </tr>
                 <tr>
+                  <td className="py-3 px-4 font-semibold text-white">Try it yourself</td>
+                  <td className="py-3 px-4 text-zinc-300">
+                    Attack the agent in the Red-Team Console (prompt injection, out-of-mandate items, price traps, budget drain) and verify Ed25519 receipts in your own browser.
+                  </td>
+                  <td className="py-3 px-4 font-mono text-zinc-400 text-[11px]">
+                    <code>src/lib/redteam.ts</code><br />
+                    <code>src/lib/counterfactual.ts</code><br />
+                    <code>src/lib/receipt-browser-verify.ts</code>
+                  </td>
+                </tr>
+                <tr>
                   <td className="py-3 px-4 font-semibold text-white">2. Design</td>
                   <td className="py-3 px-4 text-zinc-300">
                     Bespoke specialty café interface with 1-click execution, live savings badges vs. median and last paid, clear decision cards, and AG Grid reconciliation ledger with status filtering and pinned bottom totals.

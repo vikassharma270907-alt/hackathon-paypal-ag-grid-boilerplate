@@ -180,3 +180,21 @@ Verified: typecheck, lint, 131/131 tests, eval 24/24, `next build`.
   real Sandbox capture + refund and paste the IDs into `docs/EVIDENCE.md`.
 - Limits: the store is in-memory, so on serverless/multi-instance hosting the morning run's drafts do not persist
   between invocations. Use a single always-on instance (Render web service) or add a database.
+
+---
+
+## Session 6 — Red-team console + browser receipt verifier (12 Nov 2026)
+
+- `/red-team` + `/api/red-team` (read-only): hostile or honest listing -> `neutralizeUntrustedTextDetailed` ->
+  `computeVerifiedPeerMedian` -> `evaluateMandate`, next to a naive "obey the listing" baseline. Evaluated against
+  a fixed copy of `SEEDED_MANDATE`, so visitors cannot change live demo state. Body capped at 8 KB, inputs bounded.
+- `lib/counterfactual.ts`: explains what would turn ASK/BLOCK into a better decision. Quantity suggestions are
+  re-run through `evaluateMandate`, so they are proven, not estimated.
+- `/verify`: Ed25519 receipt check in the browser via WebCrypto (`lib/receipt-browser-verify.ts`). `canonicalJson`
+  moved to `lib/canonical-json.ts` so signer and verifier share one implementation. `/api/receipt` gained a
+  `SAMPLE` action that signs a fixed constant payload only.
+- Fixed a syntax error in `tests/basket.test.ts` (an eslint-disable-line comment swallowed the rest of a type).
+- Docs: README steps 6-8, Devpost text and video script (ASK, not ALLOW, for the $868 espresso order).
+- Tests: `tests/redteam.test.ts` (11). Verified: tsc 0, eslint clean, 175/175 tests (17 files), eval 24/24, `next build`.
+- NOT verified: the two pages were not clicked through in a real browser (API calls and HTTP 200 only);
+  WebCrypto Ed25519 needs a current browser; `/verify` needs `RECEIPT_SIGNING_SECRET` in production.
