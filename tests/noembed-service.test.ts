@@ -3,8 +3,8 @@ import { fetchNoembedMetadata, isYouTubeOEmbedSupported } from '../src/lib/noemb
 
 describe('Noembed Service Layer', () => {
   it('validates supported YouTube URLs', () => {
-    expect(isYouTubeOEmbedSupported('https://www.youtube.com/watch?v=685tzja9ey4')).toBe(true);
-    expect(isYouTubeOEmbedSupported('https://www.youtube.com/playlist?list=PLT2es12MHToI')).toBe(true);
+    expect(isYouTubeOEmbedSupported('https://www.youtube.com/watch?v=JPJOOVRnrSQ')).toBe(true);
+    expect(isYouTubeOEmbedSupported('https://www.youtube.com/playlist?list=PLtestList123')).toBe(true);
     expect(isYouTubeOEmbedSupported('https://invalid-site.com/foo')).toBe(false);
   });
 
@@ -13,14 +13,14 @@ describe('Noembed Service Layer', () => {
     const abortCtrl = new AbortController();
     abortCtrl.abort();
 
-    const result = await fetchNoembedMetadata('https://www.youtube.com/watch?v=685tzja9ey4', {
+    const result = await fetchNoembedMetadata('https://www.youtube.com/watch?v=JPJOOVRnrSQ', {
       signal: abortCtrl.signal,
     });
 
     expect(result.isFallback).toBe(true);
     expect(result.provider_name).toBe('YouTube');
-    expect(result.title).toContain('685tzja9ey4');
-    expect(result.html).toContain('youtube-nocookie.com/embed/685tzja9ey4');
+    expect(result.title).toContain('RestockPilot');
+    expect(result.html).toContain('youtube-nocookie.com/embed/JPJOOVRnrSQ');
     expect(result.error).toBeDefined();
   });
 

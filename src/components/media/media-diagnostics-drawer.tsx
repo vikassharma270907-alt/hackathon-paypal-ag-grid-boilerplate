@@ -44,16 +44,6 @@ export function MediaDiagnosticsDrawer({
       url: 'https://www.youtube.com/watch?v=JPJOOVRnrSQ',
       badge: 'Video Target',
     },
-    {
-      label: 'Target Combined URL',
-      url: 'https://www.youtube.com/watch?v=JPJOOVRnrSQ',
-      badge: 'Full Blueprint Target',
-    },
-    {
-      label: 'Target Playlist Only',
-      url: 'https://www.youtube.com/playlist?list=PLT2es12MHToI',
-      badge: 'Playlist Container',
-    },
   ];
 
   return (

@@ -241,7 +241,7 @@ export async function resolveNoembedMetadata(
 
   // 4. Graceful Fallback for playlist-only URLs or Noembed error
   const fallbackTitle = parsed.videoId === 'JPJOOVRnrSQ'
-    ? 'RestockPilot: The Café Restocking Agent That Can't Overspend | PayPal AI Hackathon'
+    ? "RestockPilot: The Café Restocking Agent That Can't Overspend | PayPal AI Hackathon"
     : parsed.videoId
     ? `YouTube Video (${parsed.videoId})`
     : parsed.playlistId

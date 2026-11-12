@@ -7,7 +7,7 @@
  * Supports:
  * - standard watch URLs (youtube.com/watch?v=...)
  * - playlist links (youtube.com/playlist?list=...)
- * - combined video + playlist links (youtube.com/watch?v=...&list=...&pp=sAgC)
+ * - combined video + playlist links (youtube.com/watch?v=...&list=...&pp=xyz)
  * - shortlinks (youtu.be/...)
  * - embed links (youtube.com/embed/..., youtube-nocookie.com/embed/...)
  * - shorts (youtube.com/shorts/...)
@@ -43,7 +43,7 @@ export interface YouTubeParsedUrl {
   originalUrl: string;
   videoId: string | null;
   playlistId: string | null;
-  contextParam: string | null; // e.g. 'sAgC'
+  contextParam: string | null; // e.g. 'xyz'
   playbackContextParam: string | null; // alias for backwards compatibility
   startTimestamp: number | null; // seconds
   canonicalUrl: string;
@@ -93,7 +93,7 @@ export function parseTimestampToSeconds(input: string | number | null | undefine
 }
 
 /**
- * Extracts video ID, playlist ID, playback context parameter (pp=sAgC),
+ * Extracts video ID, playlist ID, playback context parameter (pp=xyz),
  * and timestamp from any YouTube URL format.
  */
 export function parseYouTubeUrl(inputUrl: string): YouTubeParsedUrl {
@@ -103,7 +103,7 @@ export function parseYouTubeUrl(inputUrl: string): YouTubeParsedUrl {
 
   const trimmed = inputUrl.trim();
 
-  // If user passed a bare 11-char video ID (e.g., "685tzja9ey4")
+  // If user passed a bare 11-char video ID (e.g., "JPJOOVRnrSQ")
   if (/^[a-zA-Z0-9_-]{11}$/.test(trimmed)) {
     const videoId = trimmed;
     const canonicalWatchUrl = `https://www.youtube.com/watch?v=${videoId}`;
@@ -162,7 +162,7 @@ export function parseYouTubeUrl(inputUrl: string): YouTubeParsedUrl {
     return createInvalidResult(trimmed, 'Non-YouTube domain supplied.');
   }
 
-  // 1. Extract context parameter (e.g. pp=sAgC)
+  // 1. Extract context parameter (e.g. pp=xyz)
   if (searchParams.has('pp')) {
     contextParam = searchParams.get('pp');
   }

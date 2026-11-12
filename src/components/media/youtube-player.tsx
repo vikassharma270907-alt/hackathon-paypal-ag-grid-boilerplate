@@ -20,9 +20,9 @@ import type { NormalizedMediaMetadata } from '@/lib/noembed-service';
 export interface YouTubePlayerProps {
   /** Target YouTube URL or video ID (defaults to hackathon video JPJOOVRnrSQ) */
   url?: string;
-  /** Custom playlist ID if queuing a playlist (defaults to PLT2es12MHToI) */
+  /** Optional playlist ID if queuing a playlist */
   playlistId?: string;
-  /** Playback context parameter (e.g. pp=sAgC) */
+  /** Playback context parameter (e.g. pp=xyz) */
   playbackContextParam?: string;
   /** Custom start timestamp in seconds (?start=X) */
   startSeconds?: number;
@@ -123,11 +123,11 @@ export function YouTubePlayer({
           throw new Error(`HTTP ${res.status}`);
         }
       } catch {
-        // Fallback default for Pactra
+        // Fallback default for RestockPilot
         if (isMounted) {
           const fallbackData: NormalizedMediaMetadata = {
             success: true,
-            title: titleOverride || 'RestockPilot: The Café Restocking Agent That Can't Overspend | PayPal AI Hackathon',
+            title: titleOverride || "RestockPilot: The Café Restocking Agent That Can't Overspend | PayPal AI Hackathon",
             providerName: 'YouTube',
             providerUrl: 'https://www.youtube.com/',
             authorName: 'Vikas Sharma',
@@ -172,7 +172,7 @@ export function YouTubePlayer({
     titleOverride ||
     metadata?.title ||
     (activeVideoId === 'JPJOOVRnrSQ'
-      ? 'RestockPilot: The Café Restocking Agent That Can't Overspend | PayPal AI Hackathon'
+      ? "RestockPilot: The Café Restocking Agent That Can't Overspend | PayPal AI Hackathon"
       : `YouTube Video (${activeVideoId})`);
 
   const providerName = metadata?.providerName || 'YouTube';

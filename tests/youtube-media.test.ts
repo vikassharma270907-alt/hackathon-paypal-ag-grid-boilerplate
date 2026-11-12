@@ -18,21 +18,21 @@ describe('YouTube Video & Playlist UI Integration Blueprint', () => {
   });
 
   describe('Tier 01: Input URL Parsing & Direct Access Diagnostics', () => {
-    it('deconstructs the target combined URL with video, playlist, and pp=sAgC context', () => {
+    it('deconstructs the target combined URL with video, playlist, and pp=xyz context', () => {
       const targetUrl =
-        'https://www.youtube.com/watch?v=685tzja9ey4&list=PLT2es12MHToI&pp=sAgC';
+        'https://www.youtube.com/watch?v=JPJOOVRnrSQ&list=PLtestList123&pp=xyz';
       const parsed = parseYouTubeUrl(targetUrl);
 
       expect(parsed.isValid).toBe(true);
-      expect(parsed.videoId).toBe('685tzja9ey4');
-      expect(parsed.playlistId).toBe('PLT2es12MHToI');
-      expect(parsed.contextParam).toBe('sAgC');
-      expect(parsed.playbackContextParam).toBe('sAgC');
-      expect(parsed.canonicalUrl).toContain('685tzja9ey4');
-      expect(parsed.canonicalUrl).toContain('PLT2es12MHToI');
-      expect(parsed.canonicalUrl).toContain('pp=sAgC');
-      expect(parsed.privacyEmbedUrl).toContain('youtube-nocookie.com/embed/685tzja9ey4');
-      expect(parsed.privacyEmbedUrl).toContain('list=PLT2es12MHToI');
+      expect(parsed.videoId).toBe('JPJOOVRnrSQ');
+      expect(parsed.playlistId).toBe('PLtestList123');
+      expect(parsed.contextParam).toBe('xyz');
+      expect(parsed.playbackContextParam).toBe('xyz');
+      expect(parsed.canonicalUrl).toContain('JPJOOVRnrSQ');
+      expect(parsed.canonicalUrl).toContain('PLtestList123');
+      expect(parsed.canonicalUrl).toContain('pp=xyz');
+      expect(parsed.privacyEmbedUrl).toContain('youtube-nocookie.com/embed/JPJOOVRnrSQ');
+      expect(parsed.privacyEmbedUrl).toContain('list=PLtestList123');
       expect(parsed.diagnostics.urlType).toBe('watch');
       expect(parsed.diagnostics.hasVideoId).toBe(true);
       expect(parsed.diagnostics.hasPlaylistId).toBe(true);
@@ -40,26 +40,26 @@ describe('YouTube Video & Playlist UI Integration Blueprint', () => {
     });
 
     it('correctly parses shortlinks with timestamp queries (youtu.be/...)', () => {
-      const shortUrl = 'https://youtu.be/685tzja9ey4?t=90';
+      const shortUrl = 'https://youtu.be/JPJOOVRnrSQ?t=90';
       const parsed = parseYouTubeUrl(shortUrl);
 
       expect(parsed.isValid).toBe(true);
-      expect(parsed.videoId).toBe('685tzja9ey4');
+      expect(parsed.videoId).toBe('JPJOOVRnrSQ');
       expect(parsed.startTimestamp).toBe(90);
       expect(parsed.diagnostics.urlType).toBe('shortlink');
       expect(parsed.privacyEmbedUrl).toContain('start=90');
     });
 
     it('correctly parses playlist-only container URLs', () => {
-      const playlistUrl = 'https://www.youtube.com/playlist?list=PLT2es12MHToI';
+      const playlistUrl = 'https://www.youtube.com/playlist?list=PLtestList123';
       const parsed = parseYouTubeUrl(playlistUrl);
 
       expect(parsed.isValid).toBe(true);
       expect(parsed.videoId).toBeNull();
-      expect(parsed.playlistId).toBe('PLT2es12MHToI');
+      expect(parsed.playlistId).toBe('PLtestList123');
       expect(parsed.diagnostics.urlType).toBe('playlist');
       expect(parsed.diagnostics.embedSupportStatus).toBe('playlist_container');
-      expect(parsed.privacyEmbedUrl).toContain('/embed/videoseries?list=PLT2es12MHToI');
+      expect(parsed.privacyEmbedUrl).toContain('/embed/videoseries?list=PLtestList123');
     });
 
     it('rejects invalid or non-YouTube URLs safely with diagnostics', () => {
@@ -86,13 +86,13 @@ describe('YouTube Video & Playlist UI Integration Blueprint', () => {
 
   describe('Tier 02: Noembed oEmbed Metadata Resolution Layer', () => {
     it('validates supported provider URLs before firing requests', () => {
-      expect(isUrlSupportedByNoembed('https://www.youtube.com/watch?v=685tzja9ey4')).toBe(true);
-      expect(isUrlSupportedByNoembed('https://youtu.be/685tzja9ey4')).toBe(true);
+      expect(isUrlSupportedByNoembed('https://www.youtube.com/watch?v=JPJOOVRnrSQ')).toBe(true);
+      expect(isUrlSupportedByNoembed('https://youtu.be/JPJOOVRnrSQ')).toBe(true);
       expect(isUrlSupportedByNoembed('https://unknown-domain.io/item')).toBe(false);
     });
 
     it('resolves normalized metadata conforming to the guaranteed contract', async () => {
-      const targetUrl = 'https://www.youtube.com/watch?v=685tzja9ey4';
+      const targetUrl = 'https://www.youtube.com/watch?v=JPJOOVRnrSQ';
       const metadata = await resolveNoembedMetadata(targetUrl);
 
       expect(metadata).toBeDefined();
@@ -101,13 +101,13 @@ describe('YouTube Video & Playlist UI Integration Blueprint', () => {
       expect(metadata.title.length).toBeGreaterThan(0);
       expect(metadata.providerName).toBe('YouTube');
       expect(metadata.provider_name).toBe('YouTube');
-      expect(metadata.canonicalUrl).toContain('685tzja9ey4');
+      expect(metadata.canonicalUrl).toContain('JPJOOVRnrSQ');
       expect(metadata.type).toBe('video');
       expect(metadata.resolvedAt).toBeDefined();
     });
 
     it('utilizes in-memory caching for repeated metadata queries', async () => {
-      const targetUrl = 'https://www.youtube.com/watch?v=685tzja9ey4';
+      const targetUrl = 'https://www.youtube.com/watch?v=JPJOOVRnrSQ';
       const first = await resolveNoembedMetadata(targetUrl);
       const second = await resolveNoembedMetadata(targetUrl);
 
@@ -116,22 +116,22 @@ describe('YouTube Video & Playlist UI Integration Blueprint', () => {
     });
 
     it('provides graceful fallback metadata for playlist URLs where Noembed oEmbed has no matching provider', async () => {
-      const playlistUrl = 'https://www.youtube.com/playlist?list=PLT2es12MHToI';
+      const playlistUrl = 'https://www.youtube.com/playlist?list=PLtestList123';
       const metadata = await resolveNoembedMetadata(playlistUrl);
 
       expect(metadata).toBeDefined();
       expect(metadata.providerName).toBe('YouTube');
-      expect(metadata.playlistId).toBe('PLT2es12MHToI');
-      expect(metadata.canonicalUrl).toContain('PLT2es12MHToI');
-      expect(metadata.embedHtml).toContain('youtube-nocookie.com/embed/videoseries?list=PLT2es12MHToI');
+      expect(metadata.playlistId).toBe('PLtestList123');
+      expect(metadata.canonicalUrl).toContain('PLtestList123');
+      expect(metadata.embedHtml).toContain('youtube-nocookie.com/embed/videoseries?list=PLtestList123');
     });
   });
 
   describe('Tier 03: YouTube Privacy-Enhanced Embed & Compliance Layer', () => {
     it('constructs privacy-enhanced embed URL with youtube-nocookie.com domain', () => {
       const embedUrl = buildPrivacyEnhancedEmbedUrl({
-        videoId: '685tzja9ey4',
-        playlistId: 'PLT2es12MHToI',
+        videoId: 'JPJOOVRnrSQ',
+        playlistId: 'PLtestList123',
         options: {
           startTimeSeconds: 45,
           captionLanguage: 'en',
@@ -140,8 +140,8 @@ describe('YouTube Video & Playlist UI Integration Blueprint', () => {
         },
       });
 
-      expect(embedUrl).toContain('https://www.youtube-nocookie.com/embed/685tzja9ey4');
-      expect(embedUrl).toContain('list=PLT2es12MHToI');
+      expect(embedUrl).toContain('https://www.youtube-nocookie.com/embed/JPJOOVRnrSQ');
+      expect(embedUrl).toContain('list=PLtestList123');
       expect(embedUrl).toContain('start=45');
       expect(embedUrl).toContain('cc_lang_pref=en');
       expect(embedUrl).toContain('cc_load_policy=1');
@@ -151,23 +151,23 @@ describe('YouTube Video & Playlist UI Integration Blueprint', () => {
 
     it('builds direct external watch URLs for restriction fallback cards', () => {
       const watchUrl = buildDirectWatchUrl({
-        videoId: '685tzja9ey4',
-        playlistId: 'PLT2es12MHToI',
-        contextParam: 'sAgC',
+        videoId: 'JPJOOVRnrSQ',
+        playlistId: 'PLtestList123',
+        contextParam: 'xyz',
       });
 
       expect(watchUrl).toBe(
-        'https://www.youtube.com/watch?v=685tzja9ey4&list=PLT2es12MHToI&pp=sAgC'
+        'https://www.youtube.com/watch?v=JPJOOVRnrSQ&list=PLtestList123&pp=xyz'
       );
     });
 
     it('supports standard embed domain when privacyEnhanced is explicitly disabled', () => {
       const embedUrl = buildPrivacyEmbedUrl({
-        videoId: '685tzja9ey4',
+        videoId: 'JPJOOVRnrSQ',
         privacyEnhanced: false,
       });
 
-      expect(embedUrl).toContain('https://www.youtube.com/embed/685tzja9ey4');
+      expect(embedUrl).toContain('https://www.youtube.com/embed/JPJOOVRnrSQ');
       expect(embedUrl).not.toContain('nocookie');
     });
   });

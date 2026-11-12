@@ -43,10 +43,10 @@ export default function WalkthroughPage() {
               </span>
             </div>
             <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-white">
-              Pactra : AI-Powered Payment Governance
+              RestockPilot: The Café Restocking Agent That Can&apos;t Overspend
             </h1>
             <p className="text-sm text-zinc-400 mt-1 max-w-2xl">
-              Official PayPal AI Hackathon 2026 Video &amp; Playlist Media Subsystem incorporating
+              Official PayPal AI Hackathon 2026 Video Media Subsystem incorporating
               Noembed oEmbed metadata resolution, YouTube Privacy-Enhanced Mode (
               <code>youtube-nocookie.com</code>), and graceful restriction fallback boundaries.
             </p>
@@ -93,8 +93,7 @@ export default function WalkthroughPage() {
                 <div className="p-4 rounded-lg bg-slate-950/80 border border-slate-800/80 space-y-2">
                   <div className="font-mono font-bold text-blue-400">Tier 01: URL Decomposition</div>
                   <p className="text-slate-400 leading-relaxed">
-                    Splits watch queries into video ID (<code>v=JPJOOVRnrSQ</code>), playlist ID (
-                    <code>list=PLT2es12MHToI</code>), and query context (<code>pp=sAgC</code>).
+                    Extracts the video ID (<code>v=JPJOOVRnrSQ</code>) from watch, shortlink, and embed URLs.
                   </p>
                 </div>
 
@@ -182,8 +181,8 @@ export default function WalkthroughPage() {
               </div>
               <p className="text-xs text-slate-400 leading-relaxed">
                 This media module powers the video submission and demonstration of{' '}
-                <strong>Pactra / VeriSettle AI</strong> for the PayPal AI Hackathon 2026, showcasing
-                autonomous milestone authorization holds, multimodal invoice matching, and deterministic policy defense.
+                <strong>RestockPilot</strong> for the PayPal AI Hackathon 2026, showcasing
+                a café restocking agent with deterministic spending policy and human-in-the-loop PayPal approval.
               </p>
               <div className="pt-2">
                 <Link

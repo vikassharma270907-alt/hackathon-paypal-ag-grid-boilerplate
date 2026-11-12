@@ -19,7 +19,7 @@ export interface VideoPlaylistPlayerProps {
   videoId?: string;
   /** Explicit playlist ID override */
   playlistId?: string;
-  /** Context parameter override (e.g. "sAgC") */
+  /** Context parameter override (e.g. "xyz") */
   contextParam?: string;
   /** Initial start time offset in seconds */
   initialStartTime?: number;
