@@ -38,7 +38,7 @@ export interface VideoPlaylistPlayerProps {
 }
 
 const DEFAULT_TARGET_URL =
-  'https://www.youtube.com/watch?v=685tzja9ey4&list=PLT2es12MHToI&pp=sAgC';
+  'https://www.youtube.com/watch?v=JPJOOVRnrSQ';
 
 export function VideoPlaylistPlayer({
   url = DEFAULT_TARGET_URL,

@@ -240,15 +240,15 @@ export async function resolveNoembedMetadata(
   }
 
   // 4. Graceful Fallback for playlist-only URLs or Noembed error
-  const fallbackTitle = parsed.videoId === '685tzja9ey4'
-    ? 'Pactra : AI-Powered Payment Governance (685tzja9ey4) | PayPal AI Hackathon 2026'
+  const fallbackTitle = parsed.videoId === 'JPJOOVRnrSQ'
+    ? 'RestockPilot: The Café Restocking Agent That Can't Overspend | PayPal AI Hackathon'
     : parsed.videoId
     ? `YouTube Video (${parsed.videoId})`
     : parsed.playlistId
     ? `YouTube Playlist (${parsed.playlistId})`
     : 'YouTube Media Player';
 
-  const authorName = parsed.videoId === '685tzja9ey4' ? 'Wild Factz' : 'YouTube Creator';
+  const authorName = parsed.videoId === 'JPJOOVRnrSQ' ? 'Vikas Sharma' : 'YouTube Creator';
   const thumbnailUrl = parsed.videoId
     ? `https://i.ytimg.com/vi/${parsed.videoId}/hqdefault.jpg`
     : '';

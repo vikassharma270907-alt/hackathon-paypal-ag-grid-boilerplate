@@ -18,7 +18,7 @@ import { buildPrivacyEmbedUrl, parseYouTubeUrl } from '@/lib/youtube-parser';
 import type { NormalizedMediaMetadata } from '@/lib/noembed-service';
 
 export interface YouTubePlayerProps {
-  /** Target YouTube URL or video ID (defaults to hackathon video 685tzja9ey4) */
+  /** Target YouTube URL or video ID (defaults to hackathon video JPJOOVRnrSQ) */
   url?: string;
   /** Custom playlist ID if queuing a playlist (defaults to PLT2es12MHToI) */
   playlistId?: string;
@@ -47,7 +47,7 @@ export interface YouTubePlayerProps {
 }
 
 export function YouTubePlayer({
-  url = 'https://www.youtube.com/watch?v=685tzja9ey4&list=PLT2es12MHToI&pp=sAgC',
+  url = 'https://www.youtube.com/watch?v=JPJOOVRnrSQ',
   playlistId: defaultPlaylistId,
   playbackContextParam: defaultContextParam,
   startSeconds: initialStartSeconds = 0,
@@ -85,9 +85,9 @@ export function YouTubePlayer({
   });
 
   const parsed = parseYouTubeUrl(currentUrl);
-  const activeVideoId = parsed.videoId || '685tzja9ey4';
-  const activePlaylistId = parsed.playlistId || defaultPlaylistId || 'PLT2es12MHToI';
-  const activeContextParam = parsed.playbackContextParam || defaultContextParam || 'sAgC';
+  const activeVideoId = parsed.videoId || 'JPJOOVRnrSQ';
+  const activePlaylistId = parsed.playlistId || defaultPlaylistId || undefined;
+  const activeContextParam = parsed.playbackContextParam || defaultContextParam || undefined;
 
   // Build embed URL based on reactive options
   const embedUrl = buildPrivacyEmbedUrl({
@@ -103,7 +103,7 @@ export function YouTubePlayer({
     modestBranding: true,
   });
 
-  const canonicalExternalUrl = `https://www.youtube.com/watch?v=${activeVideoId}&list=${activePlaylistId}&pp=${activeContextParam}`;
+  const canonicalExternalUrl = `https://www.youtube.com/watch?v=${activeVideoId}${activePlaylistId ? `&list=${activePlaylistId}` : ''}${activeContextParam ? `&pp=${activeContextParam}` : ''}`;
 
   // Fetch normalized metadata via /api/media/oembed or fallback
   useEffect(() => {
@@ -127,10 +127,10 @@ export function YouTubePlayer({
         if (isMounted) {
           const fallbackData: NormalizedMediaMetadata = {
             success: true,
-            title: titleOverride || 'Pactra : AI-Powered Payment Governance | PayPal AI Hackathon 2026',
+            title: titleOverride || 'RestockPilot: The Café Restocking Agent That Can't Overspend | PayPal AI Hackathon',
             providerName: 'YouTube',
             providerUrl: 'https://www.youtube.com/',
-            authorName: 'Wild Factz',
+            authorName: 'Vikas Sharma',
             authorUrl: 'https://www.youtube.com/',
             thumbnailUrl: `https://i.ytimg.com/vi/${activeVideoId}/hqdefault.jpg`,
             canonicalUrl: canonicalExternalUrl,
@@ -171,8 +171,8 @@ export function YouTubePlayer({
   const displayTitle =
     titleOverride ||
     metadata?.title ||
-    (activeVideoId === '685tzja9ey4'
-      ? 'Pactra : AI-Powered Payment Governance | PayPal AI Hackathon 2026'
+    (activeVideoId === 'JPJOOVRnrSQ'
+      ? 'RestockPilot: The Café Restocking Agent That Can't Overspend | PayPal AI Hackathon'
       : `YouTube Video (${activeVideoId})`);
 
   const providerName = metadata?.providerName || 'YouTube';

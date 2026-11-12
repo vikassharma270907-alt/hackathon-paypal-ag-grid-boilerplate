@@ -19,7 +19,7 @@ import Link from 'next/link';
 
 export default function WalkthroughPage() {
   const [currentUrl, setCurrentUrl] = useState<string>(
-    'https://www.youtube.com/watch?v=685tzja9ey4&list=PLT2es12MHToI&pp=sAgC'
+    'https://www.youtube.com/watch?v=JPJOOVRnrSQ'
   );
   const [metadata, setMetadata] = useState<NormalizedMediaMetadata | null>(null);
 
@@ -93,7 +93,7 @@ export default function WalkthroughPage() {
                 <div className="p-4 rounded-lg bg-slate-950/80 border border-slate-800/80 space-y-2">
                   <div className="font-mono font-bold text-blue-400">Tier 01: URL Decomposition</div>
                   <p className="text-slate-400 leading-relaxed">
-                    Splits watch queries into video ID (<code>v=685tzja9ey4</code>), playlist ID (
+                    Splits watch queries into video ID (<code>v=JPJOOVRnrSQ</code>), playlist ID (
                     <code>list=PLT2es12MHToI</code>), and query context (<code>pp=sAgC</code>).
                   </p>
                 </div>

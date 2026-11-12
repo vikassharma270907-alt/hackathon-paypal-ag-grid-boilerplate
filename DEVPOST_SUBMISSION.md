@@ -135,7 +135,7 @@ To view the demo, click **Details**, then **visit this unsafe site**. If you wou
 - [x] **Tagline:** Your café never runs out, and your agent never overspends. AI proposes, deterministic code decides, the owner approves, and PayPal verifies.
 - [x] **Track Selected:** Grand Prize / Best Use of Agentic Commerce / Best Use of PayPal + AI
 - [x] **Additional Tracks:** Best Use of Channel3, Best Use of AG Grid
-- [x] **Video URL:** (Upload recording following the 2:45 script above)
+- [x] **Video URL:** https://www.youtube.com/watch?v=JPJOOVRnrSQ
 - [x] **GitHub Repo URL:** (Public repository URL)
 - [x] **Testing Instructions:** Included in README.md (`npm install`, `npm test`, `npm run eval`, `npm run dev`)
 - [x] **Credentials:** Configured via `.env.local` with Sandbox credentials; includes instant zero-friction simulated mode fallback.

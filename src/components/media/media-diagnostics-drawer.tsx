@@ -40,13 +40,13 @@ export function MediaDiagnosticsDrawer({
 
   const presets = [
     {
-      label: 'Target Video (Pactra 2026)',
-      url: 'https://www.youtube.com/watch?v=685tzja9ey4',
+      label: 'RestockPilot Demo Video',
+      url: 'https://www.youtube.com/watch?v=JPJOOVRnrSQ',
       badge: 'Video Target',
     },
     {
       label: 'Target Combined URL',
-      url: 'https://www.youtube.com/watch?v=685tzja9ey4&list=PLT2es12MHToI&pp=sAgC',
+      url: 'https://www.youtube.com/watch?v=JPJOOVRnrSQ',
       badge: 'Full Blueprint Target',
     },
     {
@@ -142,7 +142,7 @@ export function MediaDiagnosticsDrawer({
                 className="flex-1 bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-xs font-mono text-white focus:outline-none focus:border-blue-500"
               />
               <button
-                onClick={() => onUrlChange('https://www.youtube.com/watch?v=685tzja9ey4&list=PLT2es12MHToI&pp=sAgC')}
+                onClick={() => onUrlChange('https://www.youtube.com/watch?v=JPJOOVRnrSQ')}
                 className="px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg font-mono text-xs transition-colors"
               >
                 Reset Default
@@ -235,7 +235,7 @@ export function MediaDiagnosticsDrawer({
             </div>
             <div className="bg-slate-950 p-2.5 rounded-lg border border-slate-800">
               <span className="text-slate-500 block">author_name</span>
-              <span className="text-emerald-300 block">{metadata?.authorName || 'Wild Factz'}</span>
+              <span className="text-emerald-300 block">{metadata?.authorName || 'Vikas Sharma'}</span>
             </div>
             <div className="bg-slate-950 p-2.5 rounded-lg border border-slate-800">
               <span className="text-slate-500 block">source</span>

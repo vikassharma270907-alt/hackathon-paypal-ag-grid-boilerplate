@@ -15,6 +15,8 @@
 
 ---
 
+🎬 **Demo video:** [RestockPilot: The Café Restocking Agent That Can't Overspend](https://www.youtube.com/watch?v=JPJOOVRnrSQ)
+
 ## ⚡ 90-Second Judge Walkthrough
 
 Judges can test the complete end-to-end loop in **zero-login, 1-click mode**:
