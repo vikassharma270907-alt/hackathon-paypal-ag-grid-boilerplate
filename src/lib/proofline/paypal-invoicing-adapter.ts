@@ -27,6 +27,7 @@ export interface InvoiceAdapterResponse {
   paypalDebugId?: string;
   simulated: boolean;
   error?: string;
+  warning?: string;
 }
 
 /**
@@ -113,6 +114,26 @@ export async function createPayPalInvoiceOnSandbox(
 
     if (!res.ok) {
       const errText = await res.text();
+
+      // 401/403: the sandbox REST app lacks the Invoicing feature/permission.
+      // Fall back to a clearly-labeled simulated invoice so the demo keeps working.
+      if (res.status === 401 || res.status === 403) {
+        const simInvoiceId = `INV2-SIM-${Date.now().toString(36).toUpperCase()}`;
+        return {
+          success: true,
+          providerInvoiceId: simInvoiceId,
+          status: 'CREATED',
+          rawStatus: 'DRAFT',
+          hostedPaymentUrl: `https://www.sandbox.paypal.com/invoice/p/#${simInvoiceId}`,
+          paypalDebugId: debugId,
+          simulated: true,
+          warning:
+            `PayPal rejected Invoicing (${res.status}); using a SIMULATED invoice. ` +
+            `Enable "Invoicing" on the sandbox REST app (developer.paypal.com > Apps & Credentials) for live calls. ` +
+            errText.slice(0, 200),
+        };
+      }
+
       return {
         success: false,
         providerInvoiceId: null,
@@ -159,7 +180,7 @@ export async function sendPayPalInvoiceOnSandbox(
   providerInvoiceId: string
 ): Promise<InvoiceAdapterResponse> {
   const token = await getPayPalAccessToken();
-  const isSimulated = isUsingSimulatedToken() || providerInvoiceId.includes('SIM');
+  const isSimulated = isUsingSimulatedToken() || (providerInvoiceId.includes('SIM') || providerInvoiceId.includes('PRFL'));
   const requestId = generateRequestId(`send-${providerInvoiceId}`);
 
   if (isSimulated) {
@@ -237,7 +258,7 @@ export async function readbackPayPalInvoice(
   error?: string;
 }> {
   const token = await getPayPalAccessToken();
-  const isSimulated = isUsingSimulatedToken() || providerInvoiceId.includes('SIM');
+  const isSimulated = isUsingSimulatedToken() || (providerInvoiceId.includes('SIM') || providerInvoiceId.includes('PRFL'));
 
   if (isSimulated) {
     // In simulated sandbox, we return the status based on current mock lifecycle
