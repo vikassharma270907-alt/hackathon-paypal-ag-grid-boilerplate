@@ -1,4 +1,5 @@
 import "server-only";
+import { tryConsumeAiCall, AiBudgetExceededError } from "./ai-budget";
 
 /**
  * VeriSettle AI — Google Gemini Multimodal Intelligence Client
@@ -77,6 +78,10 @@ export async function callGemini(
     throw new Error("GEMINI_API_KEY is not configured in .env or .env.local.");
   }
 
+  if (!tryConsumeAiCall()) {
+    throw new AiBudgetExceededError();
+  }
+
   const {
     preferredModel,
     jsonMode = false,
@@ -90,8 +95,16 @@ export async function callGemini(
     : CANDIDATE_MODELS;
 
   let lastError: Error | null = null;
+  // One shared deadline across ALL candidate models so a slow/unreachable provider
+  // can never stall a caller (or a live demo) for N x timeoutMs.
+  const deadline = Date.now() + timeoutMs;
 
   for (const model of modelsToTry) {
+    const remaining = deadline - Date.now();
+    if (remaining <= 0) {
+      lastError = lastError ?? new Error(`Gemini call exceeded ${timeoutMs}ms deadline`);
+      break;
+    }
     try {
       const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
       const payload: Record<string, unknown> = {
@@ -111,16 +124,17 @@ export async function callGemini(
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
-        signal: AbortSignal.timeout(timeoutMs),
+        signal: AbortSignal.timeout(remaining),
       });
 
       if (!res.ok) {
         const errorBody = await res.text();
         lastError = new Error(`Gemini ${model} HTTP ${res.status}: ${errorBody.slice(0, 200)}`);
-        // Retry next candidate model on 404 (model moved/renamed), 503 (demand spike), or 429
-        if (res.status === 404 || res.status === 503 || res.status === 429) {
-          continue;
+        // Auth / bad-request errors are key-level, not model-level: other models will fail too.
+        if (res.status === 400 || res.status === 401 || res.status === 403) {
+          break;
         }
+        // 404 (model moved/renamed), 429 (rate limit), 5xx (demand spike): try next candidate.
         continue;
       }
 

@@ -8,23 +8,7 @@
 
 import crypto from 'node:crypto';
 
-// Secret seed for signing docket receipts (deterministic fallback for sandbox & verification)
-const RECEIPT_SIGNING_SECRET =
-  process.env.RECEIPT_SIGNING_SECRET || 'restockpilot-hackathon-fips180-4-secret-key-2026';
-
-/**
- * One-time security warning: the fallback signing key ships with the public source,
- * so anyone with this repository can forge receipt signatures. Acceptable for the
- * sandbox hackathon demo (transparent SIMULATED/SANDBOX mode only) — but a strong
- * secret must be set before any real deployment.
- */
-if (!process.env.RECEIPT_SIGNING_SECRET && process.env.NODE_ENV !== 'test' && !process.env.VITEST) {
-  console.warn(
-    '[receipt-verifier] RECEIPT_SIGNING_SECRET is not set — using the public fallback key from source. ' +
-      'Receipt signatures are forgeable by anyone with this repository. ' +
-      'Add RECEIPT_SIGNING_SECRET to .env.local before any real deployment.'
-  );
-}
+import { getReceiptSigningSecret } from './receipt-secret';
 
 export interface SignedDocketReceipt {
   receiptId: string;
@@ -96,7 +80,7 @@ export function signDocketReceipt(data: {
 
   const canonicalPayload = canonicalizeObject(payloadToSign);
   const signature = crypto
-    .createHmac('sha256', RECEIPT_SIGNING_SECRET)
+    .createHmac('sha256', getReceiptSigningSecret())
     .update(canonicalPayload)
     .digest('hex');
 
@@ -139,7 +123,7 @@ export function verifyDocketReceipt(receipt: SignedDocketReceipt): {
 
   const canonicalPayload = canonicalizeObject(payload);
   const expectedSignature = crypto
-    .createHmac('sha256', RECEIPT_SIGNING_SECRET)
+    .createHmac('sha256', getReceiptSigningSecret())
     .update(canonicalPayload)
     .digest('hex');
 

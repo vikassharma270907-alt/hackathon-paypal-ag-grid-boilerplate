@@ -318,3 +318,33 @@ export function evaluateMandate(
     evaluatedAt: currentDate.toISOString(),
   };
 }
+
+// ============================================================================
+// D. Days-of-Stock Coverage (stock-aware quantities)
+// ============================================================================
+
+export interface CoverageCalculation {
+  sku: string;
+  daysOfStockLeft: number | null; // null when there is no recorded daily burn
+  coverageTargetDays: number;
+  coverageQty: number;            // pack-rounded units needed to cover `coverageTargetDays` from net position
+}
+
+/**
+ * "Cups: 3 days left. Order enough to cover two weeks."
+ * Uses net inventory position (onHand + onOrder - committed) so in-transit stock is respected.
+ * Pure and deterministic; pack/MOQ rounding matches computeReorder.
+ */
+export function computeCoverage(item: InventorySkuInput, targetDays = 14): CoverageCalculation {
+  const d = Math.max(0, item.avgDailySales);
+  const position = Math.max(0, item.onHand + item.onOrder - (item.committed ?? 0));
+  const days = Math.max(1, Math.floor(targetDays));
+  const packSize = Math.max(1, item.packSize ?? 1);
+  const moq = Math.max(1, item.moq ?? 1);
+
+  const daysOfStockLeft = d > 0 ? Number((position / d).toFixed(1)) : null;
+  const deficit = Math.max(0, d * days - position);
+  const coverageQty = deficit > 0 ? Math.max(moq, Math.ceil(deficit / packSize) * packSize) : 0;
+
+  return { sku: item.sku, daysOfStockLeft, coverageTargetDays: days, coverageQty };
+}

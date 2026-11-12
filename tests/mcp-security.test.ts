@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { MCP_TOOLS, FORBIDDEN_MONEY_TOOLS, GET, POST } from '../src/app/api/mcp/route';
+import { MCP_TOOLS, FORBIDDEN_MONEY_TOOLS } from '../src/lib/mcp-restock';
+import { GET, POST } from '../src/app/api/mcp/route';
 import { NextRequest } from 'next/server';
 
 describe('RestockPilot Read-Only MCP Server Security Boundary', () => {

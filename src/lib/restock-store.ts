@@ -1,5 +1,6 @@
 import crypto from 'node:crypto';
 import type { InventorySkuInput, Mandate, PolicyDecision } from './policy';
+import type { Basket } from './basket';
 
 export type ClaimStatus =
   | 'DRAFT'
@@ -10,7 +11,8 @@ export type ClaimStatus =
   | 'UNKNOWN'
   | 'RECONCILED'
   | 'FAILED'
-  | 'DECLINED';
+  | 'DECLINED'
+  | 'REFUNDED';
 
 export interface RestockPurchaseOrder {
   id: string; // e.g. PO-SUNRISE-101
@@ -42,6 +44,7 @@ export interface RestockClaim {
   status: ClaimStatus;
   paypalOrderId?: string;
   paypalCaptureId?: string;
+  paypalRefundId?: string;
   approveUrl?: string;
   paypalFee?: string;
   amount: number;
@@ -65,7 +68,8 @@ export interface LedgerEntry {
   total: number;
   savingsVsMedian: number;
   decision: PolicyDecision;
-  status: 'PENDING' | 'ALLOW' | 'ASK' | 'BLOCK' | 'CAPTURED' | 'WEBHOOK_VERIFIED' | 'UNKNOWN' | 'RECONCILED';
+  status: 'PENDING' | 'ALLOW' | 'ASK' | 'BLOCK' | 'CAPTURED' | 'WEBHOOK_VERIFIED' | 'UNKNOWN' | 'RECONCILED' | 'REFUNDED';
+  // (basket flows reuse PENDING/CAPTURED/UNKNOWN)
   paypalOrderId?: string;
   paypalCaptureId?: string;
   webhookEventId?: string;
@@ -169,6 +173,7 @@ class RestockPilotStore {
   inventory: Map<string, InventorySkuInput> = new Map();
   purchaseOrders: Map<string, RestockPurchaseOrder> = new Map();
   claims: Map<string, RestockClaim> = new Map();
+  baskets: Map<string, Basket> = new Map();
   ledger: LedgerEntry[] = [];
   processedWebhookIds: Set<string> = new Set();
   spendSoFar: number = 850.0; // Current cycle spend before new orders
@@ -185,6 +190,7 @@ class RestockPilotStore {
     }
     this.purchaseOrders.clear();
     this.claims.clear();
+    this.baskets.clear();
     this.ledger = [];
     this.processedWebhookIds.clear();
     this.spendSoFar = 850.0;
@@ -205,7 +211,7 @@ class RestockPilotStore {
       paypalCaptureId: "78G12345TN987654K",
       webhookEventId: "WH-20261110-884102",
       idempotencyHash: computeSha256("PO-OAT-INIT:create:25800"),
-      notes: "Prior replenishment cycle in-transit (covers current ROP)",
+      notes: "SEEDED demo row (placeholder PayPal IDs, not a live run). Prior replenishment cycle in-transit (covers current ROP)",
     });
   }
 
@@ -249,7 +255,45 @@ class RestockPilotStore {
     this.ledger.unshift(entry);
   }
 
-  getLedger(): LedgerEntry[] {
+  /**
+   * Refund restores the budget: a refunded captured order frees the period budget and in-transit
+   * stock immediately. LOCAL ledger effect only; the PayPal Payments v2 refund call itself is not
+   * made here (roadmap) and the ledger note says so, so it is never presented as a PayPal refund.
+   * Idempotent: a second call throws instead of double-restoring.
+   */
+  restoreBudgetForRefund(poId: string, reason = 'Owner-initiated refund', refundRef?: string): { restored: number; spendSoFar: number } {
+    const claim = this.claims.get(poId);
+    const po = this.purchaseOrders.get(poId);
+    if (!claim || !po) throw new Error(`No captured order found for ${poId}`);
+    if (claim.status === 'REFUNDED') throw new Error(`Order ${poId} was already refunded`);
+    if (claim.status !== 'CAPTURED') throw new Error(`Only CAPTURED orders can restore budget (status: ${claim.status})`);
+
+    const restored = Math.min(po.totalPrice, this.spendSoFar);
+    this.spendSoFar = Number((this.spendSoFar - restored).toFixed(2));
+    this.updateOnOrder(po.sku, -po.qty);
+    claim.status = 'REFUNDED';
+    claim.updatedAt = new Date().toISOString();
+    this.claims.set(poId, claim);
+    this.addLedgerEntry({
+      id: `LEDGER-${computeSha256(`${poId}:refund`).slice(0, 8).toUpperCase()}`,
+      timestamp: new Date().toISOString(),
+      step: 'Refund restored budget',
+      sku: po.sku,
+      merchant: po.merchantName,
+      qty: po.qty,
+      total: -restored,
+      savingsVsMedian: 0,
+      decision: po.decision,
+      status: 'REFUNDED',
+      paypalOrderId: claim.paypalOrderId,
+      paypalCaptureId: claim.paypalCaptureId,
+      idempotencyHash: computeSha256(`${poId}:refund`),
+      notes: refundRef
+        ? `${reason}. PayPal refund ${refundRef}; budget restored.`
+        : `${reason}. Local budget restored; PayPal refund API not invoked.`,
+    });
+    return { restored, spendSoFar: this.spendSoFar };
+  }  getLedger(): LedgerEntry[] {
     return this.ledger;
   }
 }

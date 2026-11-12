@@ -37,7 +37,7 @@ const PINNED_EVIDENCE: VerifiedOrderTrace[] = [
     idempotencyHash: '8f2a1b9c3e4d5a6b7c8d9e0f1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b',
     contractHash: 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855',
     webhookEventId: 'WH-20261110-884102',
-    status: 'CAPTURED & WEBHOOK_VERIFIED',
+    status: 'SEEDED DEMO ROW (not from a live run)',
     verifiedAt: '2026-11-10T14:32:00Z',
   },
   {
@@ -50,7 +50,7 @@ const PINNED_EVIDENCE: VerifiedOrderTrace[] = [
     idempotencyHash: 'c47d89ab12ef34cd56ab78cd90ef12ab34cd56ef78ab90cd12ef34ab56cd78ef',
     contractHash: 'a91b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b',
     webhookEventId: 'WH-20261112-990142',
-    status: 'CAPTURED & WEBHOOK_VERIFIED',
+    status: 'SEEDED DEMO ROW (not from a live run)',
     verifiedAt: '2026-11-12T08:15:00Z',
   },
   {
@@ -63,7 +63,7 @@ const PINNED_EVIDENCE: VerifiedOrderTrace[] = [
     idempotencyHash: '7e891234abcd56ef7890abcd1234ef567890abcd1234ef567890abcd1234ef56',
     contractHash: 'b34567cdef0123456789abcdef0123456789abcdef0123456789abcdef012345',
     webhookEventId: 'WH-20261112-990155',
-    status: 'ORDER_CREATED (Phase A Complete)',
+    status: 'SEEDED DEMO ROW (not from a live run)',
     verifiedAt: '2026-11-12T09:00:00Z',
   },
 ];
@@ -116,7 +116,7 @@ export default function EvidencePage() {
                 <h1 className="text-xl font-bold tracking-tight text-white flex items-center gap-2">
                   <span>PayPal Sandbox Evidence & Evaluation Registry</span>
                   <span className="text-xs font-mono px-2 py-0.5 rounded bg-emerald-950 text-emerald-300 border border-emerald-800">
-                    Live Verified
+                    Seeded rows + live GET read-back
                   </span>
                 </h1>
                 <p className="text-xs text-zinc-400 mt-0.5">
@@ -152,10 +152,10 @@ export default function EvidencePage() {
             <div>
               <h2 className="text-base font-bold text-white flex items-center gap-2">
                 <Lock className="size-4 text-emerald-400" />
-                1. Authoritative PayPal Sandbox Transaction Registry
+                1. PayPal Sandbox Transaction Registry
               </h2>
               <p className="text-xs text-zinc-400 mt-0.5">
-                Every record is anchored by a deterministic SHA-256 idempotency key and custom_id contract hash.
+                The three pinned rows below are SEEDED DEMO DATA with placeholder identifiers, not captured from a live PayPal run. Paste a real Order ID from your own /demo checkout into the verifier to read it back from PayPal.
               </p>
             </div>
           </div>

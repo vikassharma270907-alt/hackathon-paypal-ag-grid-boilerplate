@@ -6,15 +6,17 @@
 
 ---
 
-## 1. Real PayPal Sandbox Transaction Registry
+## 1. PayPal Sandbox Transaction Registry
+
+> **IMPORTANT: the three rows below are SEEDED DEMO DATA with placeholder identifiers. They were NOT captured from a live PayPal Sandbox run and must not be quoted as real transactions. Replace them with IDs from your own checkout (see the paste section) before submitting.**
 
 Every transaction executed by RestockPilot follows the strict **Two-Phase Idempotent Orders v2 Pipeline** with contract hashing and raw-body signature verification:
 
 | Transaction Ref | Pipeline Step | SKU & Item Description | Amount | PayPal Order ID | PayPal Capture ID | PayPal-Request-Id (SHA-256) | custom_id Contract Hash | Webhook Event ID | Verification Status |
 | :--- | :--- | :--- | :---: | :--- | :--- | :--- | :--- | :--- | :---: |
-| **PO-SUNRISE-INIT** | Phase B Captured | `OAT-MILK-6PK` (Barista Oat Milk 12x Case) | $258.00 | `5O190127TN364715T` | `78G12345TN987654K` | `8f2a1b9c3e4d...` | `e3b0c44298fc...` | `WH-20261110-884102` | `✅ VERIFIED` |
-| **PO-ESPRESSO-LIVE** | Phase B Captured | `ESPRESSO-5LB` (Colombia Bean 14x Bags) | $868.00 | `3W981023KM491204X` | `12B45678KM123456P` | `c47d89ab12ef...` | `a91b2c3d4e5f...` | `WH-20261112-990142` | `✅ VERIFIED` |
-| **PO-CUPS-LIVE** | Phase A Created | `CUPS-12OZ-500` (12oz Paper Cups 8x Sleeves) | $304.00 | `7R451092PL883109Q` | *(Awaiting Approval)* | `7e891234abcd...` | `b34567cdef01...` | `WH-20261112-990155` | `⏳ APPROVED` |
+| **PO-SUNRISE-INIT** | Phase B Captured | `OAT-MILK-6PK` (Barista Oat Milk 12x Case) | $258.00 | `5O190127TN364715T` | `78G12345TN987654K` | `8f2a1b9c3e4d...` | `e3b0c44298fc...` | `WH-20261110-884102` | `✅ SEEDED (unverified)` |
+| **PO-ESPRESSO-LIVE** | Phase B Captured | `ESPRESSO-5LB` (Colombia Bean 14x Bags) | $868.00 | `3W981023KM491204X` | `12B45678KM123456P` | `c47d89ab12ef...` | `a91b2c3d4e5f...` | `WH-20261112-990142` | `✅ SEEDED (unverified)` |
+| **PO-CUPS-LIVE** | Phase A Created | `CUPS-12OZ-500` (12oz Paper Cups 8x Sleeves) | $304.00 | `7R451092PL883109Q` | *(Awaiting Approval)* | `7e891234abcd...` | `b34567cdef01...` | `WH-20261112-990155` | `⏳ SEEDED (unverified)` |
 
 ---
 

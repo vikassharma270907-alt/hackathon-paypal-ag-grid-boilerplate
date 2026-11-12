@@ -936,3 +936,139 @@ export async function getPayPalOrderDetails(paypalOrderId: string): Promise<Reco
   return (await res.json()) as Record<string, unknown>;
 }
 
+
+// ============================================================================
+// Refund: PayPal Payments v2 (POST /v2/payments/captures/{id}/refund) + read-back
+// ============================================================================
+
+export interface RestockRefundResult {
+  success: boolean;
+  poId: string;
+  mode: 'SANDBOX' | 'SIMULATED';
+  refundId?: string;
+  refundStatus?: string;
+  restored?: number;
+  spendSoFar?: number;
+  paypalRequestIdRefund: string;
+  message?: string;
+}
+
+/**
+ * Refunds a CAPTURED order through PayPal and only then restores the local budget.
+ *  - Idempotent: PayPal-Request-Id = sha256(poId:refund:captureId), so a retry can never refund twice.
+ *  - Read-back: GET /v2/payments/refunds/{id}; budget is restored only when PayPal reports COMPLETED.
+ *    PENDING is reported honestly and leaves the budget untouched.
+ *  - Simulated mode creates a SIMULATED_REF_ id and says so; it is never presented as a PayPal refund.
+ *  - Any non-2xx / network error leaves local state unchanged (safe to retry with the same key).
+ */
+export async function refundCapturedOrder(
+  poId: string,
+  reason = 'Owner-initiated refund'
+): Promise<RestockRefundResult> {
+  assertSandboxBaseUrl();
+  const po = restockStore.getPurchaseOrder(poId);
+  const claim = restockStore.getClaim(poId);
+  if (!po || !claim) throw new Error(`PO or Claim ${poId} not found in RestockPilot store`);
+  if (claim.status === 'REFUNDED') throw new Error(`Order ${poId} was already refunded`);
+  if (claim.status !== 'CAPTURED' || !claim.paypalCaptureId) {
+    throw new Error(`Only CAPTURED orders can be refunded (status: ${claim.status})`);
+  }
+
+  const captureId = claim.paypalCaptureId;
+  const paypalRequestIdRefund = computeSha256(`${poId}:refund:${captureId}`);
+  const token = await getPayPalAccessToken();
+  const isSimulated =
+    getExecutionMode() === 'SIMULATED' ||
+    isUsingSimulatedToken() ||
+    token.startsWith('simulated_') ||
+    captureId.startsWith('SIMULATED_');
+
+  if (isSimulated) {
+    const refundId = `SIMULATED_REF_${poId.replace(/[^a-zA-Z0-9]/g, '')}_${Date.now().toString(36)}`;
+    claim.paypalRefundId = refundId;
+    restockStore.saveClaim(claim);
+    const r = restockStore.restoreBudgetForRefund(poId, reason, refundId);
+    return {
+      success: true,
+      poId,
+      mode: 'SIMULATED',
+      refundId,
+      refundStatus: 'COMPLETED',
+      ...r,
+      paypalRequestIdRefund,
+      message: 'Simulated refund (no Sandbox credentials). Not a real PayPal refund.',
+    };
+  }
+
+  const res = await fetch(`${BASE_URL}/v2/payments/captures/${encodeURIComponent(captureId)}/refund`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'application/json',
+      'PayPal-Request-Id': paypalRequestIdRefund,
+      Prefer: 'return=representation',
+    },
+    body: JSON.stringify({
+      amount: { value: po.totalPrice.toFixed(2), currency_code: 'USD' },
+      note_to_payer: reason.slice(0, 255),
+      invoice_id: poId.slice(0, 127),
+    }),
+    cache: 'no-store',
+    signal: AbortSignal.timeout(15000),
+  });
+
+  if (!res.ok) {
+    const errText = await res.text();
+    claim.errorDetails = `Refund error HTTP ${res.status}: ${errText.slice(0, 300)}`;
+    claim.updatedAt = new Date().toISOString();
+    restockStore.saveClaim(claim);
+    throw new Error(`Refund API failed [HTTP ${res.status}]: ${errText.slice(0, 200)}`);
+  }
+
+  const created = (await res.json()) as { id?: string; status?: string };
+  if (!created.id) throw new Error('Refund response did not include a refund id');
+
+  // Read-back: trust PayPal's stored state, not the POST response.
+  const rb = await fetch(`${BASE_URL}/v2/payments/refunds/${encodeURIComponent(created.id)}`, {
+    headers: { Authorization: `Bearer ${token}` },
+    cache: 'no-store',
+    signal: AbortSignal.timeout(15000),
+  });
+  const refund = rb.ok
+    ? ((await rb.json()) as { id?: string; status?: string; amount?: { value?: string; currency_code?: string } })
+    : null;
+
+  claim.paypalRefundId = created.id;
+  claim.updatedAt = new Date().toISOString();
+  restockStore.saveClaim(claim);
+
+  const status = refund?.status ?? created.status ?? 'UNKNOWN';
+  const amountOk = refund?.amount?.value === po.totalPrice.toFixed(2) && refund?.amount?.currency_code === 'USD';
+
+  if (status === 'COMPLETED' && amountOk) {
+    const r = restockStore.restoreBudgetForRefund(poId, reason, created.id);
+    return {
+      success: true,
+      poId,
+      mode: 'SANDBOX',
+      refundId: created.id,
+      refundStatus: status,
+      ...r,
+      paypalRequestIdRefund,
+      message: 'Refund completed and verified by PayPal read-back; budget restored.',
+    };
+  }
+
+  return {
+    success: false,
+    poId,
+    mode: 'SANDBOX',
+    refundId: created.id,
+    refundStatus: status,
+    paypalRequestIdRefund,
+    message:
+      status === 'COMPLETED'
+        ? 'PayPal reported a refund amount/currency different from the order; budget NOT restored. Investigate.'
+        : `Refund is ${status}. Budget is restored only once PayPal reports COMPLETED.`,
+  };
+}

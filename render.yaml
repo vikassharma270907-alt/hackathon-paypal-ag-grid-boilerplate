@@ -30,6 +30,12 @@ services:
         sync: false
       - key: CHANNEL3_API_KEY
         sync: false
+      - key: RECEIPT_SIGNING_SECRET
+        generateValue: true
+      - key: CRON_SECRET
+        generateValue: true
+      - key: AI_DAILY_CALL_CAP
+        value: "60"
       - key: ML_SERVICE_URL
         fromService:
           type: web

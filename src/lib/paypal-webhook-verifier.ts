@@ -3,6 +3,17 @@ import crypto from 'node:crypto';
 // In-memory certificate cache: certUrl -> pemString
 const certCache = new Map<string, { pem: string; fetchedAt: number }>();
 const CERT_CACHE_TTL_MS = 60 * 60 * 1000; // 1 hour
+const CERT_FETCH_TIMEOUT_MS = 5_000;
+const MAX_TRANSMISSION_AGE_MS = 5 * 60 * 1000; // replay window
+const SUPPORTED_AUTH_ALGOS = new Set(['SHA256withRSA']);
+
+// Exact hosts only: a wildcard on *.paypal.com would trust every subdomain.
+const TRUSTED_CERT_HOSTS = new Set([
+  'api-m.paypal.com',
+  'api-m.sandbox.paypal.com',
+  'api.paypal.com',
+  'api.sandbox.paypal.com',
+]);
 
 /**
  * Standard IEEE 802.3 32-bit CRC implementation (unsigned decimal output for PayPal).
@@ -26,12 +37,7 @@ export function computeCrc32Unsigned(buffer: Buffer): number {
 export function isTrustedPayPalCertUrl(certUrl: string): boolean {
   try {
     const parsed = new URL(certUrl);
-    return (
-      parsed.protocol === 'https:' &&
-      (parsed.hostname === 'api-m.sandbox.paypal.com' ||
-        parsed.hostname === 'api-m.paypal.com' ||
-        parsed.hostname.endsWith('.paypal.com'))
-    );
+    return parsed.protocol === 'https:' && TRUSTED_CERT_HOSTS.has(parsed.hostname);
   } catch {
     return false;
   }
@@ -51,7 +57,11 @@ export async function getPayPalCertificate(certUrl: string): Promise<string> {
     return cached.pem;
   }
 
-  const res = await fetch(certUrl, { cache: 'force-cache' });
+  // no-store: our own certCache enforces the TTL; Next's force-cache would pin a rotated cert.
+  const res = await fetch(certUrl, {
+    cache: 'no-store',
+    signal: AbortSignal.timeout(CERT_FETCH_TIMEOUT_MS),
+  });
   if (!res.ok) {
     throw new Error(`Failed to fetch certificate from ${certUrl}: HTTP ${res.status}`);
   }
@@ -79,6 +89,15 @@ export async function verifyWebhookLocalCrypto(
   try {
     if (!isTrustedPayPalCertUrl(headers.certUrl)) {
       return { verified: false, error: 'Cert URL is not a trusted PayPal host' };
+    }
+
+    if (!SUPPORTED_AUTH_ALGOS.has(headers.authAlgo)) {
+      return { verified: false, error: `Unsupported auth algorithm: ${headers.authAlgo}` };
+    }
+
+    const sentAt = Date.parse(headers.transmissionTime);
+    if (!Number.isFinite(sentAt) || Math.abs(Date.now() - sentAt) > MAX_TRANSMISSION_AGE_MS) {
+      return { verified: false, error: 'Transmission time outside allowed window (possible replay)' };
     }
 
     const pem = await getPayPalCertificate(headers.certUrl);

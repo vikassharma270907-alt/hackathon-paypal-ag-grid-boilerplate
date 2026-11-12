@@ -77,6 +77,20 @@ export default function JudgesGuidePage() {
               <ArrowRight className="size-3.5" />
             </Link>
             <Link
+              href="/red-team"
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-rose-600/30 hover:bg-rose-600/50 text-rose-200 border border-rose-700 transition"
+            >
+              Red-Team Console
+              <ArrowRight className="size-3.5" />
+            </Link>
+            <Link
+              href="/verify"
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border border-zinc-700 transition"
+            >
+              Verify a Receipt
+              <ArrowRight className="size-3.5" />
+            </Link>
+            <Link
               href="/evidence"
               className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg bg-blue-600/30 hover:bg-blue-600/50 text-blue-300 border border-blue-700 transition"
             >
@@ -249,11 +263,13 @@ export default function JudgesGuidePage() {
                     <span className="text-[10px] text-emerald-400 font-normal">Official Hackathon Tie-Breaker</span>
                   </td>
                   <td className="py-3 px-4 text-zinc-300">
-                    Two-Phase Orders v2 with pre-capture GET verification, unsigned 32-bit CRC32 raw-body webhook splicing, periodic-review (s, S) replenishment math, unit-price normalizer, and read-only MCP server.
+                    Two-Phase Orders v2 with pre-capture GET verification, unsigned 32-bit CRC32 raw-body webhook splicing, periodic-review (s, S) replenishment math, unit-price normalizer, grounded and PII-masked AI layer with a daily call cap, Ed25519 publicly verifiable receipts (with a live tamper test on /demo), and read-only MCP server.
                   </td>
                   <td className="py-3 px-4 font-mono text-zinc-400 text-[11px]">
                     <code>src/lib/paypal.ts</code><br />
                     <code>src/lib/units.ts</code><br />
+                    <code>src/lib/receipt-ed25519.ts</code><br />
+                    <code>src/lib/grounding.ts</code><br />
                     <code>src/app/api/mcp/route.ts</code>
                   </td>
                 </tr>

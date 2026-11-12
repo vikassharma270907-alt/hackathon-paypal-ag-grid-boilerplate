@@ -42,3 +42,14 @@ if (!process.env.PAYPAL_SECRET || process.env.PAYPAL_SECRET === 'your_sandbox_cl
 }
 
 
+
+// Hermetic tests: never call the live Gemini API with the fake CI key. Failing instantly exercises
+// the deterministic fallback path (which is exactly what must work when a provider is down).
+const realFetch = globalThis.fetch;
+globalThis.fetch = ((input: RequestInfo | URL, init?: RequestInit) => {
+  const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;
+  if (url.includes('generativelanguage.googleapis.com')) {
+    return Promise.reject(new Error('Gemini network disabled in tests'));
+  }
+  return realFetch(input, init);
+}) as typeof fetch;

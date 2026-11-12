@@ -170,3 +170,18 @@ RestockPilot enforces strict separation of responsibilities:
 - [x] **Checkpoint 5 — Full verification:** Lint (0/0), tsc (0), vitest (100/100), eval (24/24), next build (44/44 routes pass).
 - [x] **Checkpoint 6 — Final quality review:** Clean diff verified; zero secrets staged; documentation verified.
 - [x] **Checkpoint 7 — GitHub release:** Atomic commits created on `feat/proofline-and-fullstack-audit`, ready for pull request review.
+
+## 2026-11-12 Baseline and repair pass
+
+Baseline (before edits): `tsc --noEmit` FAILED (1 error), `vitest run tests` FAILED (3 of 136), eslint passed, `next build` passed.
+
+| ID | Sev | Finding | Status |
+|---|---|---|---|
+| BUG-101 | P1 | `src/app/api/restock/route.ts` called `runRestockCycle` without importing it. `RUN_CYCLE` threw a ReferenceError (500) and broke the 3 demo-flow tests. Unused imports left over from the refactor were removed. | VERIFIED |
+| SEC-101 | P1 | Receipt HMAC and Ed25519 keys silently fell back to a secret published in source, so receipts were forgeable in production. Both now use `src/lib/receipt-secret.ts`, which throws in a production runtime without `RECEIPT_SIGNING_SECRET`. The only bypass is the explicit `ALLOW_INSECURE_DEMO_RECEIPT_KEY=true`. Regression test: `tests/receipt-secret.test.ts`. | VERIFIED |
+| SEC-102 | P0 | `next` 16.3.6 had a critical advisory. Bumped to 16.4.6 (exact pin). `sharp` updated through `npm audit fix`. | VERIFIED |
+| SEC-103 | P2 | 11 prod-dependency advisories remain (6 high): `@paypal/agent-toolkit` chain (langchain, langsmith, jsondiffpatch), `zod` 3.x. The fixes are semver-major or downgrades. | DEFERRED, needs a compatibility decision |
+
+After edits: tsc 0 errors, eslint clean, vitest 15 files / 162 tests passed, `next build` succeeded.
+
+NOT RUN: browser E2E and accessibility checks (no suites in the repo), PayPal Sandbox lifecycle (no credentials in this session), CI, GitHub push/PR (no git remote is configured).

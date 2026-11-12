@@ -31,6 +31,7 @@ import {
 import { AgGridProvider, AgGridReact } from 'ag-grid-react';
 import type { RestockPurchaseOrder, RestockClaim, LedgerEntry } from '@/lib/restock-store';
 import type { InventorySkuInput, ReorderCalculation, Mandate } from '@/lib/policy';
+import { computeCoverage } from '@/lib/policy';
 
 const modules = [
   ClientSideRowModelModule,
@@ -69,6 +70,10 @@ export default function RestockPilotDemoPage() {
   } | null>(null);
 
   const [activeStatusFilter, setActiveStatusFilter] = useState<string>('ALL');
+  const [aiBudget, setAiBudget] = useState<{ used: number; cap: number; capped: boolean } | null>(null);
+  const [receiptProof, setReceiptProof] = useState<
+    Record<string, { valid: boolean; reason?: string; sha?: string; tamperResult?: { valid: boolean; reason?: string } }>
+  >({});
   const [quickFilterText, setQuickFilterText] = useState<string>('');
   const [verificationModalData, setVerificationModalData] = useState<{
     orderId: string;
@@ -109,6 +114,54 @@ export default function RestockPilotDemoPage() {
       ignore = true;
     };
   }, []);
+
+  useEffect(() => {
+    let ignore = false;
+    fetch('/api/receipt')
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j) => {
+        if (!ignore && j?.aiBudget) setAiBudget(j.aiBudget);
+      })
+      .catch(() => undefined);
+    return () => {
+      ignore = true;
+    };
+  }, []);
+
+  const postJson = (url: string, body: unknown) =>
+    fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+
+  // Sign the docket with Ed25519 and verify it with the public key. Then flip the total by $100
+  // to prove tampering is detected.
+  const handleVerifyReceipt = async (poId: string) => {
+    const signed = await (await postJson('/api/receipt', { action: 'SIGN', poId })).json();
+    if (!signed.receipt) {
+      setReceiptProof((p) => ({ ...p, [poId]: { valid: false, reason: signed.error || 'Signing failed' } }));
+      return;
+    }
+    const verdict = await (await postJson('/api/receipt', { action: 'VERIFY', receipt: signed.receipt })).json();
+    const tampered = {
+      ...signed.receipt,
+      payload: { ...signed.receipt.payload, totalPrice: Number(signed.receipt.payload.totalPrice) + 100 },
+    };
+    const tamperVerdict = await (await postJson('/api/receipt', { action: 'VERIFY', receipt: tampered })).json();
+    setReceiptProof((p) => ({
+      ...p,
+      [poId]: { ...verdict, sha: signed.receipt.payloadSha256, tamperResult: tamperVerdict },
+    }));
+  };
+
+  const handleRefundRestore = async (poId: string) => {
+    setLoading(true);
+    try {
+      const res = await postJson('/api/restock', { action: 'REFUND_ORDER', poId });
+      const json = await res.json();
+      if (!res.ok || json.success === false) alert(json.message || json.error || 'Refund failed');
+      await fetchData();
+    } finally {
+      setLoading(false);
+    }
+  };
 
   // One-click actions
   const handleRunCycle = async () => {
@@ -396,6 +449,18 @@ export default function RestockPilotDemoPage() {
                       Simulated Mode (No Keys — IDs prefixed SIMULATED_)
                     </span>
                   )}
+                  {aiBudget && (
+                    <span
+                      className={`text-xs font-semibold px-2 py-0.5 rounded-full border ${
+                        aiBudget.capped
+                          ? 'bg-amber-950/80 text-amber-300 border-amber-800'
+                          : 'bg-zinc-900 text-zinc-300 border-zinc-700'
+                      }`}
+                      title="Daily model-call cap protects the demo quota. When capped, the app serves a labelled deterministic replay."
+                    >
+                      {aiBudget.capped ? 'AI capped: deterministic replay' : `AI calls ${aiBudget.used}/${aiBudget.cap} today`}
+                    </span>
+                  )}
                 </div>
                 <p className="text-xs text-zinc-400 mt-0.5 font-medium">
                   &ldquo;Your café never runs out, and your agent never overspends. AI proposes, deterministic code decides, the owner approves, and PayPal verifies.&rdquo;
@@ -528,6 +593,14 @@ export default function RestockPilotDemoPage() {
                     <tr key={item.sku} className={`hover:bg-zinc-800/40 transition-colors ${isOatMilk ? 'bg-emerald-950/10' : ''}`}>
                       <td className="py-2.5 px-3">
                         <div className="font-semibold text-white">{item.name}</div>
+                        {(() => {
+                          const cov = computeCoverage(item, 14);
+                          return cov.daysOfStockLeft === null ? null : (
+                            <div className="text-[10px] font-mono text-zinc-400" title="Net position / daily burn">
+                              {cov.daysOfStockLeft}d of stock left &middot; 14d cover = {cov.coverageQty}
+                            </div>
+                          );
+                        })()}
                         <div className="text-[10px] font-mono text-zinc-500">{item.sku} • {item.category}</div>
                       </td>
                       <td className="py-2.5 px-2 font-mono text-zinc-300">{item.avgDailySales}</td>
@@ -775,6 +848,52 @@ export default function RestockPilotDemoPage() {
                     {claim && claim.status === 'CAPTURED' && (
                       <div className="p-2 rounded bg-emerald-950/60 border border-emerald-800 text-center text-xs text-emerald-300 font-semibold">
                         ✓ Settled via PayPal Sandbox ({claim.paypalCaptureId})
+                      </div>
+                    )}
+
+                    {claim && claim.status === 'REFUNDED' && (
+                      <div className="p-2 rounded bg-zinc-900 border border-zinc-700 text-center text-xs text-zinc-300 font-semibold">
+                        Refunded. Budget restored.
+                      </div>
+                    )}
+
+                    {claim && (claim.status === 'CAPTURED' || claim.status === 'REFUNDED' || claim.status === 'AWAITING_BUYER_APPROVAL') && (
+                      <div className="space-y-1.5">
+                        <button
+                          onClick={() => handleVerifyReceipt(po.id)}
+                          className="w-full py-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 border border-zinc-600 text-zinc-100 font-semibold text-xs"
+                        >
+                          Sign &amp; verify receipt (Ed25519)
+                        </button>
+                        {receiptProof[po.id] && (
+                          <div
+                            role="status"
+                            className="text-[11px] font-mono rounded border border-zinc-700 bg-zinc-950 p-2 space-y-0.5"
+                          >
+                            <div className={receiptProof[po.id].valid ? 'text-emerald-400' : 'text-red-400'}>
+                              {receiptProof[po.id].valid ? 'Signature valid' : `Invalid: ${receiptProof[po.id].reason}`}
+                            </div>
+                            {receiptProof[po.id].sha && (
+                              <div className="text-zinc-500 truncate" title={receiptProof[po.id].sha}>
+                                sha256 {receiptProof[po.id].sha}
+                              </div>
+                            )}
+                            {receiptProof[po.id].tamperResult && (
+                              <div className={receiptProof[po.id].tamperResult!.valid ? 'text-red-400' : 'text-emerald-400'}>
+                                Tamper test (+$100 on total): {receiptProof[po.id].tamperResult!.valid ? 'NOT detected' : 'detected, rejected'}
+                              </div>
+                            )}
+                          </div>
+                        )}
+                        {claim.status === 'CAPTURED' && (
+                          <button
+                            onClick={() => handleRefundRestore(po.id)}
+                            disabled={loading}
+                            className="w-full py-1.5 rounded-lg bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 text-zinc-300 text-xs"
+                          >
+                            Refund via PayPal (restores budget)
+                          </button>
+                        )}
                       </div>
                     )}
 

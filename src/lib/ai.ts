@@ -2,6 +2,8 @@
 import { z } from 'zod';
 import { callGemini, getGeminiApiKey } from './gemini';
 import type { CandidateOffer, ReorderCalculation } from './policy';
+import { maskPii, neutralizeUntrustedText } from './sanitize';
+import { groundRanking } from './grounding';
 
 const DEFAULT_MODELS = ['gpt-5.4-mini'];
 
@@ -84,7 +86,9 @@ export type OfferRanking = z.infer<typeof OfferRankingSchema>;
  * Parses the café owner's natural language mandate into structured policy parameters.
  * Emits an explicit "AI read your mandate as..." confirmation preview.
  */
-export async function parseOwnerMandate(input: string): Promise<ParsedMandate> {
+export async function parseOwnerMandate(rawInput: string): Promise<ParsedMandate> {
+  // Privacy: emails / phone numbers never reach a model or a log line.
+  const input = maskPii(rawInput);
   // Check for ambiguous or contradictory input requiring clarification
   const lower = input.toLowerCase();
   const isAmbiguous =
@@ -191,8 +195,8 @@ export async function rankSourcedOffers(
       (o, i) => `
 <untrusted_merchant_listing id="${o.id}">
 Index: ${i + 1}
-Merchant: "${o.merchantName}"
-Title: "${o.title.replace(/"/g, "'")}"
+Merchant: "${neutralizeUntrustedText(o.merchantName, 80)}"
+Title: "${neutralizeUntrustedText(o.title).replace(/"/g, "'")}"
 Unit Price: $${o.unitPrice.toFixed(2)}
 Total Price: $${o.totalPrice.toFixed(2)}
 Condition: ${o.condition}
@@ -234,7 +238,13 @@ Respond ONLY in strict JSON:
       const response = await callGemini(prompt, { jsonMode: true, temperature: 0.1 });
       const parsed = JSON.parse(response.text.replace(/```json\n?|```/g, '').trim());
       parsed.modelUsed = `Gemini (${response.model})`;
-      return OfferRankingSchema.parse(parsed);
+      const ranking = OfferRankingSchema.parse(parsed);
+      // Grounding gate: every id, quote, price and merchant must trace to this run's sourced offers.
+      const grounding = groundRanking(ranking, offers);
+      if (!grounding.grounded) {
+        throw new Error(`AI ranking failed grounding check: ${grounding.violations.join('; ')}`);
+      }
+      return ranking;
     }
   } catch (err) {
     console.warn("[AI Offer Ranker] Gemini call failed, falling back to deterministic template:", err);
