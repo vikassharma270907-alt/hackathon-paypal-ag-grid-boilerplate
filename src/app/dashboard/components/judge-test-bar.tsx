@@ -24,7 +24,9 @@ export interface TestActionResult {
   title: string;
   status: string;
   details: string;
-  paypalDebugId?: string;
+  paypalDebugId?: string | null;
+  /** SIMULATION or SANDBOX, as reported by the server. Absent for tests that call nothing. */
+  mode?: string;
   latencyMs?: number;
   trace?: Record<string, unknown>;
   variancePct?: number;
@@ -269,10 +271,13 @@ export function JudgeTestBar({ onTestExecuted }: JudgeTestBarProps) {
             <div className="flex items-center justify-between border-b border-slate-800 pb-3 mb-3">
               <div className="flex items-center gap-2">
                 <ShieldCheck className="w-5 h-5 text-blue-400" />
-                <h3 className="text-sm font-semibold text-white">PayPal Live Sandbox Audit Trace</h3>
+                <h3 className="text-sm font-semibold text-white">
+                  {lastResult.mode === 'SANDBOX' ? 'PayPal Sandbox Audit Trace' : 'Audit Trace (SIMULATION, no PayPal call)'}
+                </h3>
               </div>
               <button
                 onClick={() => setShowDebugModal(false)}
+                aria-label="Close audit trace"
                 className="text-slate-400 hover:text-white text-xs px-2 py-1 rounded"
               >
                 ✕
@@ -286,7 +291,11 @@ export function JudgeTestBar({ onTestExecuted }: JudgeTestBarProps) {
               </div>
               <div className="bg-slate-950 p-2.5 rounded border border-slate-800">
                 <div className="text-slate-400">Endpoint & HTTP Status:</div>
-                <div className="text-emerald-400">POST {String(lastResult.trace?.path || '/v2/checkout/orders')} (HTTP {String(lastResult.trace?.status || 201)})</div>
+                <div className="text-emerald-400">
+                  {lastResult.trace
+                    ? `POST ${String(lastResult.trace.path ?? 'unknown')} (HTTP ${String(lastResult.trace.status ?? 'unknown')})`
+                    : 'No PayPal request was made'}
+                </div>
               </div>
               <div className="bg-slate-950 p-2.5 rounded border border-slate-800">
                 <div className="text-slate-400">Execution Latency:</div>

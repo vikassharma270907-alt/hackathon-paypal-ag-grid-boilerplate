@@ -67,6 +67,10 @@ Judges can test the complete end-to-end loop in **zero-login, 1-click mode**:
 | **Daily AI Call Cap (labelled deterministic replay)** | `src/lib/ai-budget.ts` enforced in `src/lib/gemini.ts:callGemini()` | `tests/blueprint-features.test.ts` |
 | **Refund Restores Budget Only After PayPal Read-Back** | `src/lib/paypal.ts:refundCapturedOrder()` | `tests/refund-and-morning-run.test.ts` (mocked PayPal: COMPLETED, PENDING, amount mismatch, 5xx) |
 | **Unattended Morning Run Creates Drafts Only** | `src/app/api/cron/morning-run/route.ts`, `src/lib/restock-cycle.ts` | `tests/refund-and-morning-run.test.ts` (no PayPal claim, idempotent, auth fail-closed) |
+| **Every Order Needs Explicit Owner Approval** | `src/lib/paypal.ts:createOrderForRestock()` + `captureApprovedOrder()` (ALLOW included; morning-run drafts wait) | `tests/audit-regressions.test.ts` (AUD-001) |
+| **Money Actions Are Serialized Per Order; Spend Counted Once** | `src/lib/paypal.ts:withPaymentLock()` + `applyCapture()` | `tests/audit-regressions.test.ts` (AUD-002, AUD-003) |
+| **Settlement, Above-Threshold Holds and Dispute Actions Need an Operator** | `src/app/api/paypal/escrow/route.ts`, `src/app/api/paypal/dispute/route.ts` (strict `api-guard`) | `tests/audit-regressions.test.ts` (AUD-006/007) |
+| **Simulation Never Invents PayPal Data** | `src/lib/paypal.ts:getPayPalOrderDetails()`, `src/app/api/test-bar/route.ts`, `src/app/api/restock/verify/route.ts` | `tests/audit-regressions.test.ts` (AUD-005, AUD-010, AUD-011) |
 
 ---
 
@@ -140,7 +144,7 @@ cp .env.example .env.local
 
 # 3. Run typecheck & automated tests
 npm run typecheck # runs tsc --noEmit across the full codebase
-npm test          # runs all unit and integration tests (162 tests across 15 files at time of writing)
+npm test          # runs the full Vitest suite
 
 # 4. Run the 24-Case Adversarial Benchmark
 npm run eval
@@ -152,10 +156,22 @@ npm run dev
 
 ---
 
+## 🧪 Verify a Running Server
+
+```bash
+npm run smoke                 # 20-check judge-journey smoke test (SIMULATION, or SANDBOX up to approval)
+npm run sandbox:verify        # one real PayPal Sandbox checkout, capture and refund, recorded as evidence
+```
+
+Full guide with every environment variable: [`docs/RUNNING_LOCALLY.md`](docs/RUNNING_LOCALLY.md).
+
+---
+
 ## 📚 Documentation Map
 
 | Location | Contents |
 | :--- | :--- |
+| [`docs/RUNNING_LOCALLY.md`](docs/RUNNING_LOCALLY.md) | Install, environment variables, smoke test, live Sandbox verification, deployment constraint |
 | [`DEVPOST_SUBMISSION.md`](DEVPOST_SUBMISSION.md) | Official Devpost submission text |
 | [`docs/EVIDENCE.md`](docs/EVIDENCE.md) | Verified benchmark results & PayPal debug trace evidence |
 | [`docs/PROOFLINE_GUIDE.md`](docs/PROOFLINE_GUIDE.md) | ProofLine scope-to-payment guide (design doc; its source modules are not in this repo snapshot) |

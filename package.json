@@ -9,7 +9,9 @@
     "typecheck": "tsc --noEmit",
     "lint": "eslint",
     "test": "vitest run tests",
-    "eval": "tsx scripts/eval.ts"
+    "eval": "tsx scripts/eval.ts",
+    "smoke": "tsx scripts/smoke.ts",
+    "sandbox:verify": "tsx --env-file-if-exists=.env.local scripts/sandbox-verify.ts"
   },
   "dependencies": {
     "@channel3/sdk": "^4.9.0",

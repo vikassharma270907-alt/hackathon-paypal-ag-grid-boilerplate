@@ -4,6 +4,10 @@ services:
     name: verisettle-web
     env: node
     plan: standard
+    # Exactly one instance: restock state, payment claims and the per-order payment lock live in this
+    # process's memory. A second instance would not see the first one's lock (double capture risk).
+    # Scaling out requires moving that state to a database with a row lock first.
+    numInstances: 1
     buildCommand: npm install --include=dev --legacy-peer-deps && npm run build
     startCommand: npx next start -p $PORT -H 0.0.0.0
     healthCheckPath: /api/health

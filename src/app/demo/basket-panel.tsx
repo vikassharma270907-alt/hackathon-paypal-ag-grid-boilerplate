@@ -59,22 +59,32 @@ export function BasketPanel({ purchaseOrders, claims, onChanged }: Props) {
     (po) => po.decision !== 'BLOCK' && !claimed.has(po.id) && !inOpenBasket.has(po.id),
   );
 
-  const call = async (body: Record<string, unknown>) => {
+  /**
+   * Returns true only when the server accepted the request. A non-JSON error page (proxy 502,
+   * HTML 500) or a network failure is shown in the alert instead of escaping as an unhandled
+   * rejection from the click handler.
+   */
+  const call = async (body: Record<string, unknown>): Promise<boolean> => {
     setBusy(true);
     setError(null);
+    let ok = false;
     try {
       const res = await fetch('/api/restock/basket', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
       });
-      const json = (await res.json()) as { error?: string };
-      if (!res.ok) setError(json.error ?? 'Request failed');
+      const json = (await res.json().catch(() => ({}))) as { error?: string };
+      ok = res.ok;
+      if (!res.ok) setError(json.error ?? `Request failed (HTTP ${res.status})`);
       await load();
       await onChanged();
+    } catch (e: unknown) {
+      setError(e instanceof Error ? `Request failed: ${e.message}` : 'Request failed');
     } finally {
       setBusy(false);
     }
+    return ok;
   };
 
   const toggle = (set: Set<string>, id: string) => {
@@ -130,7 +140,10 @@ export function BasketPanel({ purchaseOrders, claims, onChanged }: Props) {
             type="button"
             disabled={busy || selected.size === 0}
             onClick={() => {
-              void call({ action: 'CREATE', poIds: Array.from(selected) }).then(() => setSelected(new Set()));
+              void call({ action: 'CREATE', poIds: Array.from(selected) }).then((ok) => {
+                // Keep the judge's selection when the hold was refused, so they can fix and retry.
+                if (ok) setSelected(new Set());
+              });
             }}
             className="mt-3 rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-blue-500 disabled:opacity-40"
           >

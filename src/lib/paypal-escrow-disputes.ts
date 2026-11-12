@@ -193,7 +193,7 @@ export async function settleAuthorizationHold(
   finalCapture: boolean = true
 ): Promise<{ data: Record<string, unknown>; trace: PayPalAuditTrace }> {
   const start = performance.now();
-  const isSimulated = accessToken.startsWith("simulated_") || authorizationId.startsWith("SIM-");
+  const isSimulated = accessToken.startsWith("simulated_"); // server state only, never a client id prefix
 
   if (isSimulated) {
     const latency = Math.round(performance.now() - start + 18);
@@ -279,7 +279,7 @@ export async function getOrderDetails(
   orderId: string
 ): Promise<{ data: Record<string, unknown>; trace: PayPalAuditTrace }> {
   const start = performance.now();
-  const isSimulated = accessToken.startsWith("simulated_") || orderId.startsWith("SIM-");
+  const isSimulated = accessToken.startsWith("simulated_"); // server state only, never a client id prefix
 
   if (isSimulated) {
     const trace: PayPalAuditTrace = {
@@ -348,7 +348,7 @@ export async function authorizeOrder(
   requestId: string = `auth-${orderId}-${Date.now().toString(36)}`
 ): Promise<{ data: Record<string, unknown>; trace: PayPalAuditTrace }> {
   const start = performance.now();
-  const isSimulated = accessToken.startsWith("simulated_") || orderId.startsWith("SIM-");
+  const isSimulated = accessToken.startsWith("simulated_"); // server state only, never a client id prefix
 
   if (isSimulated) {
     const authId = `SIM-AUTH-${Date.now().toString(36).toUpperCase()}`;
@@ -430,7 +430,7 @@ export async function getAuthorizationDetails(
   authorizationId: string
 ): Promise<{ data: Record<string, unknown>; trace: PayPalAuditTrace }> {
   const start = performance.now();
-  const isSimulated = accessToken.startsWith("simulated_") || authorizationId.startsWith("SIM-");
+  const isSimulated = accessToken.startsWith("simulated_"); // server state only, never a client id prefix
 
   if (isSimulated) {
     const trace: PayPalAuditTrace = {
@@ -592,7 +592,7 @@ export async function executeDisputeResolution(
   requestId: string = `dispute-${disputeId}-${strategy.toLowerCase()}`
 ): Promise<{ data: Record<string, unknown>; trace: PayPalAuditTrace }> {
   const start = performance.now();
-  const isSimulated = accessToken.startsWith("simulated_") || disputeId.startsWith("SIM-");
+  const isSimulated = accessToken.startsWith("simulated_"); // server state only, never a client id prefix
 
   let endpointSuffix = "make-offer";
   if (strategy === "ACCEPT_CLAIM") endpointSuffix = "accept-claim";
