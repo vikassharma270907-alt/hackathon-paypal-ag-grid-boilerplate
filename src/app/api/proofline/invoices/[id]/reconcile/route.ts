@@ -24,7 +24,10 @@ export async function POST(
     invoice.lastReadbackAt = new Date().toISOString();
     invoice.readbackRawStatus = readback.rawStatus;
 
-    if (readback.success) {
+    if (readback.simulated) {
+      // No real PayPal record to read: keep the locally tracked lifecycle (e.g. PAID after simulated payment).
+      invoice.readbackRawStatus = invoice.status;
+    } else if (readback.success) {
       invoice.status = readback.status;
       if (readback.status === 'PAID') {
         invoice.paidAt = new Date().toISOString();

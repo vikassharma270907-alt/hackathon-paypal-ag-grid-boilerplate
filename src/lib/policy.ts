@@ -26,6 +26,7 @@ export interface InventorySkuInput {
   packSize?: number;         // Supplier case/pack multiple (default 1)
   moq?: number;              // Minimum order quantity (default 1)
   lastPaidUnitPrice: number; // Historical benchmark price in USD
+  shelfLifeDays?: number;    // Freshness window after receipt (perishables only); see lib/shelf-life.ts
 }
 
 export interface ReorderCalculation {

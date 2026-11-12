@@ -48,11 +48,11 @@ const STAGES: PipelineStage[] = [
   {
     id: 'stage-3',
     stepNumber: '03',
-    title: 'PayPal Escrow Hold',
+    title: 'PayPal Authorization Hold',
     subtitle: 'Orders v2 Two-Phase Authorization',
     icon: Lock,
     status: 'COMPLETED',
-    payloadSummary: 'Auth ID: 88M19204VA293841C ($24,800.00 Authorized in Escrow)',
+    payloadSummary: 'Auth ID: 88M19204VA293841C ($24,800.00 Authorized as a Hold)',
     policyEnforcement: 'PayPal-Request-Id idempotency key + instrument check',
     paypalApi: 'POST /v2/checkout/orders + POST /v2/checkout/orders/{id}/authorize',
   },
@@ -98,10 +98,13 @@ export function ObsidianSettlementPipeline() {
             </span>
           </div>
           <h3 className="text-lg font-bold text-white mt-1">
-            Autonomous Escrow Verification Pipeline
+            Autonomous Hold Verification Pipeline
           </h3>
           <p className="text-xs text-zinc-400">
             &ldquo;AI Proposes, Deterministic Policy Disposes, PayPal Executes.&rdquo;
+          </p>
+          <p className="mt-1 inline-block text-[10px] font-mono px-2 py-0.5 rounded bg-amber-950/50 text-amber-200 border border-amber-800/60">
+            ILLUSTRATIVE SAMPLE · stage ids and amounts are example values, not PayPal responses
           </p>
         </div>
 

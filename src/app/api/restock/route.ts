@@ -9,14 +9,18 @@ import {
   getExecutionMode,
 } from '@/lib/paypal';
 import { runRestockCycle } from '@/lib/restock-cycle';
-import { denyUnlessAuthorized, rejectOversizedBody } from '@/lib/api-guard';
+import { checkOperatorAccess, denyUnlessAuthorized, rejectOversizedBody } from '@/lib/api-guard';
 
-export async function GET() {
+export async function GET(req?: NextRequest) {
   const mandate = restockStore.getMandate();
   const inventory = restockStore.getInventory();
   const calculations: ReorderCalculation[] = inventory.map(computeReorder);
   const purchaseOrders = Array.from(restockStore.purchaseOrders.values());
-  const claims = Array.from(restockStore.claims.values());
+  // Raw PayPal error bodies can contain internal detail; only the operator sees them.
+  const isOperator = req ? checkOperatorAccess(req, { strict: true }).operator : false;
+  const claims = Array.from(restockStore.claims.values()).map((c) =>
+    isOperator || !c.errorDetails ? c : { ...c, errorDetails: 'Redacted. Operator credentials required.' }
+  );
   const ledger = restockStore.getLedger();
   const executionMode = getExecutionMode();
 

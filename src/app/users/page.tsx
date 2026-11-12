@@ -155,7 +155,7 @@ export default function UsersPage() {
 
           <div className="bg-[#121215] border border-zinc-800 rounded-xl p-4 shadow-sm hover:border-zinc-700 transition-colors">
             <div className="flex items-center justify-between text-zinc-400 text-xs mb-1">
-              <span>Cumulative Escrow Volume</span>
+              <span>Cumulative Settled Volume</span>
               <DollarSign className="w-4 h-4 text-emerald-400" />
             </div>
             <div className="text-2xl font-bold font-mono text-emerald-400">
@@ -252,7 +252,7 @@ export default function UsersPage() {
                   </th>
                   <th className="py-3.5 px-4 cursor-pointer hover:text-white" onClick={() => toggleSort('totalSpendUsd')}>
                     <div className="flex items-center gap-1">
-                      <span>Total Escrow Volume</span>
+                      <span>Total Settled Volume</span>
                       <ArrowUpDown className="w-3 h-3" />
                     </div>
                   </th>

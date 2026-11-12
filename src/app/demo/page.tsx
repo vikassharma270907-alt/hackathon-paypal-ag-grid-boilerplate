@@ -32,6 +32,7 @@ import { AgGridProvider, AgGridReact } from 'ag-grid-react';
 import type { RestockPurchaseOrder, RestockClaim, LedgerEntry } from '@/lib/restock-store';
 import type { InventorySkuInput, ReorderCalculation, Mandate } from '@/lib/policy';
 import { computeCoverage } from '@/lib/policy';
+import { assessShelfLife } from '@/lib/shelf-life';
 
 const modules = [
   ClientSideRowModelModule,
@@ -596,6 +597,17 @@ export default function RestockPilotDemoPage() {
                           return cov.daysOfStockLeft === null ? null : (
                             <div className="text-[10px] font-mono text-zinc-400" title="Net position / daily burn">
                               {cov.daysOfStockLeft}d of stock left &middot; 14d cover = {cov.coverageQty}
+                            </div>
+                          );
+                        })()}
+                        {(() => {
+                          if (!item.shelfLifeDays || !calc) return null;
+                          const sl = assessShelfLife(item, calc.suggestedQty);
+                          const tone = sl.status === 'OK' ? 'text-emerald-400' : 'text-amber-300';
+                          return (
+                            <div className={`text-[10px] font-mono ${tone}`} title={sl.reason}>
+                              Shelf-life guard: {sl.status} &middot; {item.shelfLifeDays}d window
+                              {sl.wasteSpendAvoidedUsd > 0 ? ` · avoids $${sl.wasteSpendAvoidedUsd.toFixed(2)} waste` : ''}
                             </div>
                           );
                         })()}

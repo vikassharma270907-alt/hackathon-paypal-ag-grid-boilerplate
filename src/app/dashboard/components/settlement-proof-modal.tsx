@@ -18,6 +18,8 @@ export interface SettlementCertificateData {
   issuedAt: string;
   standard: string;
   orderId: string;
+  /** Where the PayPal ids came from. Anything other than SANDBOX is rendered with a SIMULATION banner. */
+  dataMode?: 'SIMULATION' | 'SANDBOX';
   recipient: string;
   authorizedAmountUsd: number;
   verifiedSettledAmountUsd: number;
@@ -51,6 +53,7 @@ export interface SettlementCertificateData {
 }
 
 export const DEFAULT_CERTIFICATE: SettlementCertificateData = {
+  dataMode: 'SIMULATION',
   certificateId: 'CERT-FIPS-2026-X88',
   issuedAt: '2026-11-12T07:15:00.000Z',
   standard: 'FIPS 180-4 SHA-256 Cryptographic Digest',
@@ -106,7 +109,7 @@ interface SettlementProofModalProps {
 export function SettlementProofModal({
   open,
   onClose,
-  certificate = DEFAULT_CERTIFICATE,
+  certificate,
 }: SettlementProofModalProps) {
   const [copiedDigest, setCopiedDigest] = useState(false);
   const [copiedJson, setCopiedJson] = useState(false);
@@ -154,7 +157,7 @@ export function SettlementProofModal({
             <div>
               <div className="flex items-center gap-2 mb-1">
                 <span className="text-xs uppercase font-mono tracking-widest bg-zinc-800 text-zinc-200 px-2 py-0.5 rounded border border-zinc-700">
-                  FIPS 180-4 VERIFIED
+                  {certificate.dataMode === 'SANDBOX' ? 'SANDBOX' : 'SIMULATION'} · SHA-256
                 </span>
                 <span className="text-xs text-zinc-400 font-mono">{certificate.certificateId}</span>
               </div>
@@ -162,11 +165,19 @@ export function SettlementProofModal({
                 Cryptographic Proof of Settlement Certificate
               </h2>
               <p className="text-xs text-zinc-400 mt-0.5">
-                Autonomous Escrow Authorization &amp; Evidence-Gated Capture Verification
+                Autonomous Authorization Hold &amp; Evidence-Gated Capture Verification
               </p>
             </div>
           </div>
         </div>
+
+        {certificate.dataMode !== 'SANDBOX' && (
+          <div role="note" className="px-6 py-3 bg-amber-950/40 border-y border-amber-800/60 text-xs text-amber-200">
+            <strong className="font-mono">SIMULATION</strong>: illustrative certificate. The order, authorization,
+            capture and debug ids below are sample values, not PayPal responses. The SHA-256 digest is computed
+            over the canonical payload shown.
+          </div>
+        )}
 
         {/* SHA-256 Digest Callout Banner */}
         <div className="p-6 bg-[#09090b] space-y-2">
@@ -207,7 +218,7 @@ export function SettlementProofModal({
                 <span className="font-semibold text-zinc-200">{certificate.recipient}</span>
               </div>
               <div className="flex justify-between py-1 border-b border-zinc-850">
-                <span className="text-zinc-400">Escrow Authorized:</span>
+                <span className="text-zinc-400">Hold Authorized:</span>
                 <span className="font-mono text-zinc-300">
                   ${certificate.authorizedAmountUsd.toFixed(2)} {certificate.currency}
                 </span>

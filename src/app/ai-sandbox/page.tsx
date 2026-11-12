@@ -149,7 +149,7 @@ export default function AiSandboxPage() {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            prompt: 'Query escrow authorization status for PO-ESCROW-2026-X88',
+            prompt: 'Query authorization hold status for PO-ESCROW-2026-X88',
             storeAudio,
             sessionId,
           }),
@@ -158,7 +158,7 @@ export default function AiSandboxPage() {
           const data = await res.json();
           setVoiceLog((prev) => [
             ...prev,
-            `User: "Query escrow authorization status for PO-ESCROW-2026-X88"`,
+            `User: "Query authorization hold status for PO-ESCROW-2026-X88"`,
             `Agent: "${data.transcript}" (Trace: ${data.traceId})`,
           ]);
 
@@ -480,7 +480,7 @@ export default function AiSandboxPage() {
                 >
                   <input
                     type="text"
-                    placeholder="Ask a question about Langfuse, 3-way matching, or PayPal escrow..."
+                    placeholder="Ask a question about Langfuse, 3-way matching, or PayPal hold..."
                     value={chatInput}
                     onChange={(e) => setChatInput(e.target.value)}
                     className="flex-1 bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-xs sm:text-sm text-white placeholder-slate-500 focus:outline-hidden focus:ring-1 focus:ring-blue-500"
@@ -556,7 +556,7 @@ export default function AiSandboxPage() {
                     <p className="text-xs text-slate-400 mt-1">
                       {isRecording
                         ? 'Capturing microphone audio stream via WebRTC / LiveKit OTel'
-                        : 'Simulates interactive audio dialog for escrow inquiries'}
+                        : 'Simulates interactive audio dialog for hold inquiries'}
                     </p>
                   </div>
                 </div>
@@ -609,7 +609,7 @@ export default function AiSandboxPage() {
                   <span className="text-[11px] font-semibold text-slate-400">Sample Prompts:</span>
                   <div className="flex flex-wrap gap-2">
                     {[
-                      'A futuristic holographic B2B escrow vault with glowing blue data streams',
+                      'A futuristic holographic B2B payment vault with glowing blue data streams',
                       'A cat wearing a space helmet floating in an asteroid belt',
                       'A detailed financial invoice audit dashboard in cyberpunk style',
                     ].map((preset) => (
@@ -703,7 +703,7 @@ export default function AiSandboxPage() {
                     {[
                       {
                         label: 'Positive Case',
-                        text: 'The automated escrow release was instantaneous and saved our procurement team 14 hours this week!',
+                        text: 'The automated hold capture was instantaneous and saved our procurement team 14 hours this week!',
                       },
                       {
                         label: 'Negative Case',

@@ -16,7 +16,7 @@ interface RadarNode {
 }
 
 const INITIAL_NODES: RadarNode[] = [
-  { id: 'node-1', label: 'PayPal Escrow Auth #882', type: 'ESCROW', x: -28, y: -25, status: 'PROTECTED', amount: '$4,250.00', latencyMs: 242, hash: '0x8f7d92a1...ef4' },
+  { id: 'node-1', label: 'PayPal Authorization Hold #882', type: 'ESCROW', x: -28, y: -25, status: 'PROTECTED', amount: '$4,250.00', latencyMs: 242, hash: '0x8f7d92a1...ef4' },
   { id: 'node-2', label: 'Gemini 3-Way Match #104', type: 'MATCH', x: 22, y: -32, status: 'VERIFIED', amount: '$12,890.50', latencyMs: 310, hash: '0x43bc1209...90a' },
   { id: 'node-3', label: 'Channel3 Price Norm #55', type: 'CATALOG', x: -35, y: 20, status: 'OPTIMAL', amount: '$940.00', latencyMs: 189, hash: '0x17fa6b33...c81' },
   { id: 'node-4', label: 'Deterministic Gate #12', type: 'ESCROW', x: 26, y: 22, status: 'PROTECTED', amount: '$6,120.00', latencyMs: 154, hash: '0x992b43cd...21f' },
@@ -45,10 +45,10 @@ export function StealthRadar() {
         <div className="flex items-center gap-2.5">
           <div className="size-2 rounded-full bg-zinc-100 beacon-pulse" />
           <span className="text-xs font-mono font-bold tracking-wider uppercase text-zinc-200">
-            Stealth Escrow Telemetry Radar
+            Stealth Hold Telemetry Radar
           </span>
-          <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-zinc-800 text-zinc-400 border border-zinc-700">
-            FIPS 180-4 ACTIVE
+          <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-amber-950/50 text-amber-200 border border-amber-800/60">
+            ILLUSTRATIVE SAMPLE · not live PayPal data
           </span>
         </div>
 
@@ -140,7 +140,7 @@ export function StealthRadar() {
               <span className="size-2 rounded-full bg-zinc-100" /> Active Auth Node
             </span>
             <span className="flex items-center gap-1.5">
-              <span className="size-2 rounded-full border border-zinc-600" /> Monitored Escrow
+              <span className="size-2 rounded-full border border-zinc-600" /> Monitored Hold
             </span>
           </div>
         </div>
@@ -190,7 +190,7 @@ export function StealthRadar() {
           <div className="pt-2 border-t border-zinc-900 flex items-center justify-between text-[11px] font-mono text-zinc-500">
             <span className="flex items-center gap-1">
               <Lock className="w-3 h-3 text-zinc-400" />
-              <span>Escrow Lock Engaged</span>
+              <span>Hold Lock Engaged</span>
             </span>
             <span className="text-zinc-400">0 Policy Breaches</span>
           </div>

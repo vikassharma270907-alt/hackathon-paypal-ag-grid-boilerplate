@@ -127,14 +127,14 @@ export function JudgeTestBar({ onTestExecuted }: JudgeTestBarProps) {
               <span className="text-xs text-zinc-400 font-mono">api-m.sandbox.paypal.com</span>
             </div>
             <p className="text-xs text-zinc-400 font-medium hidden sm:block">
-              Execute live Sandbox escrow holds, chaos injection, and 3-way match freeze
+              Execute live Sandbox authorization holds, chaos injection, and 3-way match freeze
             </p>
           </div>
         </div>
 
         {/* Right: Interactive 1-Click Buttons in Stealth Black & Grey */}
         <div className="flex flex-wrap items-center gap-2">
-          {/* Button 1: Escrow Auth */}
+          {/* Button 1: Authorization Hold */}
           <button
             onClick={() => runTest('ESCROW_AUTH')}
             disabled={loadingTest !== null}
@@ -142,7 +142,7 @@ export function JudgeTestBar({ onTestExecuted }: JudgeTestBarProps) {
           >
             <span className="size-1.5 rounded-full bg-emerald-400 inline-block" />
             <Play className="w-3 h-3 fill-current text-zinc-300" />
-            <span>1-Click Escrow Auth</span>
+            <span>1-Click Authorization Hold</span>
           </button>
 
           {/* Button 2: Tampered Invoice */}

@@ -445,10 +445,20 @@ export async function createOrderForRestock(poId: string): Promise<RestockOrderR
 
   const mandate = restockStore.getMandate();
 
-  // Re-verify budget constraint
-  if (restockStore.spendSoFar + po.totalPrice > mandate.monthlyBudget) {
+  // Never overwrite a claim whose money already moved (or may have): that would lose the capture id
+  // and reopen capture/refund for the same purchase order.
+  const existing = restockStore.getClaim(poId);
+  if (existing && ['CAPTURE_PENDING', 'CAPTURED', 'REFUNDED', 'RECONCILED'].includes(existing.status)) {
+    throw new Error(`Purchase order ${poId} already has a ${existing.status} payment; a new order was not created`);
+  }
+
+  // Re-verify budget, counting both captured spend and payments that are open but not yet
+  // captured, so concurrent unpaid orders cannot jointly exceed the monthly budget.
+  const reserved = restockStore.getReservedSpend({ poId });
+  const committedCents = Math.round((restockStore.spendSoFar + reserved) * 100);
+  if (committedCents + Math.round(po.totalPrice * 100) > Math.round(mandate.monthlyBudget * 100)) {
     throw new Error(
-      `Budget breach: Order total $${po.totalPrice.toFixed(2)} with spend $${restockStore.spendSoFar.toFixed(2)} exceeds monthly budget $${mandate.monthlyBudget.toFixed(2)}`
+      `Budget breach: Order total $${po.totalPrice.toFixed(2)} with spend $${restockStore.spendSoFar.toFixed(2)} and open orders $${reserved.toFixed(2)} exceeds monthly budget $${mandate.monthlyBudget.toFixed(2)}`
     );
   }
 
@@ -1076,6 +1086,20 @@ export async function refundCapturedOrder(
   const amountOk = refund?.amount?.value === po.totalPrice.toFixed(2) && refund?.amount?.currency_code === 'USD';
 
   if (status === 'COMPLETED' && amountOk) {
+    // A concurrent request that shares this idempotency key may already have restored the budget.
+    // PayPal refunded exactly once, so report success without restoring twice.
+    if (restockStore.getClaim(poId)?.status === 'REFUNDED') {
+      return {
+        success: true,
+        poId,
+        mode: 'SANDBOX',
+        refundId: created.id,
+        refundStatus: status,
+        spendSoFar: restockStore.spendSoFar,
+        paypalRequestIdRefund,
+        message: 'Refund already completed by a concurrent request; budget was restored once.',
+      };
+    }
     const r = restockStore.restoreBudgetForRefund(poId, reason, created.id);
     return {
       success: true,

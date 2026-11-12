@@ -198,3 +198,16 @@ Verified: typecheck, lint, 131/131 tests, eval 24/24, `next build`.
 - Tests: `tests/redteam.test.ts` (11). Verified: tsc 0, eslint clean, 175/175 tests (17 files), eval 24/24, `next build`.
 - NOT verified: the two pages were not clicked through in a real browser (API calls and HTTP 200 only);
   WebCrypto Ed25519 needs a current browser; `/verify` needs `RECEIPT_SIGNING_SECRET` in production.
+
+---
+
+## Session 6 — Review pass (12 Nov 2026)
+
+- Fix: concurrent refund requests share one PayPal-Request-Id; the loser now returns success instead of a
+  misleading "already refunded" error, and the budget is restored exactly once (test added).
+- README limit #8 corrected: `/api/restock` is now guarded by `lib/api-guard.ts` (added by another agent).
+- Authorize/capture/void against PayPal already exists for the VeriSettle escrow flow
+  (`paypal-escrow-disputes.ts`, `/api/paypal/escrow`). It is NOT wired to RestockPilot purchase orders, which
+  still use intent CAPTURE. Binding them is deliberately left alone: it would change the capture path that works
+  and cannot be proven without a real Sandbox checkout.
+- Verified: tsc 0, eslint clean, 231/231 tests (22 files), eval 24/24, `next build` passes.
