@@ -71,6 +71,7 @@ export default function RestockPilotDemoPage() {
   } | null>(null);
 
   const [activeStatusFilter, setActiveStatusFilter] = useState<string>('ALL');
+  const [receiptBusy, setReceiptBusy] = useState<string | null>(null);
   const [aiBudget, setAiBudget] = useState<{ used: number; cap: number; capped: boolean } | null>(null);
   const [receiptProof, setReceiptProof] = useState<
     Record<string, { valid: boolean; reason?: string; sha?: string; tamperResult?: { valid: boolean; reason?: string } }>
@@ -135,7 +136,10 @@ export default function RestockPilotDemoPage() {
   // Sign the docket with Ed25519 and verify it with the public key. Then flip the total by $100
   // to prove tampering is detected.
   const handleVerifyReceipt = async (poId: string) => {
-    const signed = await (await postJson('/api/receipt', { action: 'SIGN', poId })).json();
+    if (receiptBusy) return;
+    setReceiptBusy(poId);
+    try {
+    const signed = await (await postJson('/api/receipt', { action: 'SIGN', poId })).json().catch(() => ({}));
     if (!signed.receipt) {
       setReceiptProof((p) => ({ ...p, [poId]: { valid: false, reason: signed.error || 'Signing failed' } }));
       return;
@@ -150,15 +154,25 @@ export default function RestockPilotDemoPage() {
       ...p,
       [poId]: { ...verdict, sha: signed.receipt.payloadSha256, tamperResult: tamperVerdict },
     }));
+    } catch (e: unknown) {
+      setReceiptProof((p) => ({
+        ...p,
+        [poId]: { valid: false, reason: e instanceof Error ? e.message : 'Receipt check failed' },
+      }));
+    } finally {
+      setReceiptBusy(null);
+    }
   };
 
   const handleRefundRestore = async (poId: string) => {
     setLoading(true);
     try {
       const res = await postJson('/api/restock', { action: 'REFUND_ORDER', poId });
-      const json = await res.json();
-      if (!res.ok || json.success === false) alert(json.message || json.error || 'Refund failed');
+      const json = await res.json().catch(() => null);
+      if (!res.ok || json?.success === false) alert(json?.message || json?.error || `Refund failed (HTTP ${res.status})`);
       await fetchData();
+    } catch (e: unknown) {
+      alert(e instanceof Error ? `Refund failed: ${e.message}` : 'Refund failed');
     } finally {
       setLoading(false);
     }
@@ -217,11 +231,13 @@ export default function RestockPilotDemoPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'CREATE_ORDER', poId }),
       });
-      const result = await res.json();
+      const result = await res.json().catch(() => null);
       if (!res.ok) {
-        alert(result.error || 'Failed to create PayPal order');
+        alert(result?.error || `Failed to create PayPal order (HTTP ${res.status})`);
       }
       await fetchData();
+    } catch (e: unknown) {
+      alert(e instanceof Error ? `Failed to create PayPal order: ${e.message}` : 'Failed to create PayPal order');
     } finally {
       setLoading(false);
     }
@@ -235,11 +251,13 @@ export default function RestockPilotDemoPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'CAPTURE_ORDER', poId, paypalOrderId }),
       });
-      const result = await res.json();
-      if (!res.ok || !result.success) {
-        alert(result.message || result.error || 'Capture failed');
+      const result = await res.json().catch(() => null);
+      if (!res.ok || !result?.success) {
+        alert(result?.message || result?.error || `Capture failed (HTTP ${res.status})`);
       }
       await fetchData();
+    } catch (e: unknown) {
+      alert(e instanceof Error ? `Capture failed: ${e.message}` : 'Capture failed');
     } finally {
       setLoading(false);
     }
@@ -383,7 +401,7 @@ export default function RestockPilotDemoPage() {
               <button
                 onClick={() => handleVerifyLiveGet(val)}
                 className="text-[10px] px-1.5 py-0.5 rounded bg-blue-900/60 hover:bg-blue-800 text-blue-200 border border-blue-700"
-                title="Verify live with PayPal GET"
+                title={val.startsWith('SIMULATED_') ? 'Show local simulated record (no PayPal call)' : 'Verify live with PayPal GET'}
               >
                 Verify
               </button>
@@ -803,12 +821,22 @@ export default function RestockPilotDemoPage() {
                     {claim && (
                       <div className="text-[11px] font-mono text-zinc-400 flex items-center justify-between">
                         <span>Payment State:</span>
-                        <span className="text-emerald-400 font-bold">{claim.status}</span>
+                        <span
+                          className={`font-bold ${
+                            claim.status === 'CAPTURED' || claim.status === 'RECONCILED'
+                              ? 'text-emerald-400'
+                              : claim.status === 'FAILED' || claim.status === 'DECLINED' || claim.status === 'UNKNOWN'
+                                ? 'text-red-400'
+                                : 'text-amber-300'
+                          }`}
+                        >
+                          {claim.status}
+                        </span>
                       </div>
                     )}
 
                     {/* Owner approval step for ASK decisions */}
-                    {po.decision === 'ASK' && !po.approvedByOwner && (
+                    {po.decision !== 'BLOCK' && !po.approvedByOwner && (
                       <button
                         onClick={() => handleApprovePo(po.id)}
                         disabled={loading}
@@ -819,7 +847,7 @@ export default function RestockPilotDemoPage() {
                     )}
 
                     {/* Phase A: Create Order */}
-                    {(!claim || claim.status === 'DRAFT') && (po.decision === 'ALLOW' || po.approvedByOwner) && (
+                    {(!claim || claim.status === 'DRAFT') && po.decision !== 'BLOCK' && po.approvedByOwner && (
                       <button
                         onClick={() => handleCreateOrder(po.id)}
                         disabled={loading}
@@ -857,7 +885,9 @@ export default function RestockPilotDemoPage() {
                     {/* Captured state */}
                     {claim && claim.status === 'CAPTURED' && (
                       <div className="p-2 rounded bg-emerald-950/60 border border-emerald-800 text-center text-xs text-emerald-300 font-semibold">
-                        ✓ Settled via PayPal Sandbox ({claim.paypalCaptureId})
+                        {claim.paypalCaptureId?.startsWith('SIMULATED_') || data?.executionMode === 'SIMULATED'
+                          ? `SIMULATION: captured locally, no PayPal call (${claim.paypalCaptureId})`
+                          : `✓ Captured in PayPal Sandbox (${claim.paypalCaptureId})`}
                       </div>
                     )}
 
@@ -871,6 +901,8 @@ export default function RestockPilotDemoPage() {
                       <div className="space-y-1.5">
                         <button
                           onClick={() => handleVerifyReceipt(po.id)}
+                          disabled={receiptBusy !== null}
+                          aria-busy={receiptBusy === po.id}
                           className="w-full py-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 border border-zinc-600 text-zinc-100 font-semibold text-xs"
                         >
                           Sign &amp; verify receipt (Ed25519)
@@ -944,6 +976,7 @@ export default function RestockPilotDemoPage() {
                 <input
                   type="text"
                   placeholder="Quick filter ledger..."
+                  aria-label="Quick filter ledger"
                   value={quickFilterText}
                   onChange={(e) => setQuickFilterText(e.target.value)}
                   className="pl-8 pr-3 py-1 text-xs bg-zinc-900 border border-zinc-800 rounded-lg text-white placeholder-zinc-500 focus:outline-none focus:border-blue-500"
@@ -956,6 +989,7 @@ export default function RestockPilotDemoPage() {
                   <button
                     key={st}
                     onClick={() => setActiveStatusFilter(st)}
+                    aria-pressed={activeStatusFilter === st}
                     className={`px-2 py-0.5 rounded font-medium transition-colors ${
                       activeStatusFilter === st
                         ? 'bg-blue-600 text-white shadow'
@@ -990,13 +1024,23 @@ export default function RestockPilotDemoPage() {
 
       {/* Verification Modal / Live Read-Back Inspector */}
       {verificationModalData && (
-        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+        <div
+          className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="readback-title"
+          onKeyDown={(e) => {
+            if (e.key === 'Escape') setVerificationModalData(null);
+          }}
+        >
           <div className="max-w-2xl w-full bg-zinc-900 border border-zinc-800 rounded-xl p-6 shadow-2xl space-y-4">
             <div className="flex items-center justify-between border-b border-zinc-800 pb-3">
               <div className="flex items-center gap-2">
                 <ShieldCheck className="size-5 text-emerald-400" />
-                <h3 className="font-bold text-white text-sm">
-                  Authoritative PayPal Sandbox Read-Back (GET /v2/checkout/orders/{verificationModalData.orderId})
+                <h3 id="readback-title" className="font-bold text-white text-sm">
+                  {verificationModalData.orderId.startsWith('SIMULATED_') || data?.executionMode === 'SIMULATED'
+                    ? `SIMULATION: local record only, no PayPal call (${verificationModalData.orderId})`
+                    : `PayPal Sandbox Read-Back (GET /v2/checkout/orders/${verificationModalData.orderId})`}
                 </h3>
               </div>
               <button

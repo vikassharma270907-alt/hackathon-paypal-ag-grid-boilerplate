@@ -120,7 +120,10 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: `Unknown action: ${action}` }, { status: 400 });
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);
-    return NextResponse.json({ error: msg }, { status: 500 });
+    // A concurrent money action, or a payment rule refusing the request, is a conflict, not a server fault.
+    const status =
+      err instanceof Error && (err.name === 'PaymentInProgressError' || err.name === 'PaymentRuleError') ? 409 : 500;
+    return NextResponse.json({ error: msg }, { status });
   }
 }
 

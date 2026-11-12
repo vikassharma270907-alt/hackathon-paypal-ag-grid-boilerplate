@@ -85,11 +85,11 @@ export const DEFAULT_CERTIFICATE: SettlementCertificateData = {
   paypalExecutionTrace: {
     orderId: 'ORD-2026-X88',
     intent: 'AUTHORIZE',
-    authorizationId: 'AUTH-2026-78901',
-    captureId: 'CAP-2026-44321',
+    authorizationId: 'none (simulation, no PayPal call)',
+    captureId: 'none (simulation, no PayPal call)',
     finalCapture: false,
-    paypalDebugId: 'DEBUG-CERT-PROOF-9921',
-    sandboxHost: 'api-m.sandbox.paypal.com',
+    paypalDebugId: 'none (simulation, no PayPal call)',
+    sandboxHost: 'none (simulation)',
   },
   policyCompliance: {
     threeWayVarianceCheck: 'PASS (0.0% <= 1.5% threshold)',
@@ -284,6 +284,7 @@ export function SettlementProofModal({
               <span className="text-[10px] uppercase tracking-wider text-zinc-500 block">
                 PayPal Execution Trace
               </span>
+
               <div>Auth ID: {certificate.paypalExecutionTrace.authorizationId}</div>
               <div>Capture ID: {certificate.paypalExecutionTrace.captureId}</div>
               <div>PayPal-Debug-Id: {certificate.paypalExecutionTrace.paypalDebugId}</div>

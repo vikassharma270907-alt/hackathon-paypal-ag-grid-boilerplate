@@ -71,6 +71,11 @@ export async function POST(req: NextRequest) {
       });
     }
 
+    // Executing a dispute action (offer / accept / evidence) is a money decision: it needs a human
+    // operator (operator key in production). TRIAGE_ONLY stays available as a read-only recommendation.
+    const strictDenied = denyUnlessAuthorized(req, { strict: true });
+    if (strictDenied) return strictDenied;
+
     // 2. Execute optimal or overridden strategy against PayPal Customer Disputes v1
     const chosenStrategy = (strategyOverride || triageResult.recommendedStrategy) as
       | "MAKE_OFFER"

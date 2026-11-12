@@ -66,6 +66,10 @@ Judges can test the complete end-to-end loop in **zero-login, 1-click mode**:
 | **Daily AI Call Cap (labelled deterministic replay)** | `src/lib/ai-budget.ts` enforced in `src/lib/gemini.ts:callGemini()` | `tests/blueprint-features.test.ts` |
 | **Refund Restores Budget Only After PayPal Read-Back** | `src/lib/paypal.ts:refundCapturedOrder()` | `tests/refund-and-morning-run.test.ts` (mocked PayPal: COMPLETED, PENDING, amount mismatch, 5xx) |
 | **Unattended Morning Run Creates Drafts Only** | `src/app/api/cron/morning-run/route.ts`, `src/lib/restock-cycle.ts` | `tests/refund-and-morning-run.test.ts` (no PayPal claim, idempotent, auth fail-closed) |
+| **Every Order Needs Explicit Owner Approval** | `src/lib/paypal.ts:createOrderForRestock()` + `captureApprovedOrder()` (ALLOW included; morning-run drafts wait) | `tests/audit-regressions.test.ts` (AUD-001) |
+| **Money Actions Are Serialized Per Order; Spend Counted Once** | `src/lib/paypal.ts:withPaymentLock()` + `applyCapture()` | `tests/audit-regressions.test.ts` (AUD-002, AUD-003) |
+| **Settlement, Above-Threshold Holds and Dispute Actions Need an Operator** | `src/app/api/paypal/escrow/route.ts`, `src/app/api/paypal/dispute/route.ts` (strict `api-guard`) | `tests/audit-regressions.test.ts` (AUD-006/007) |
+| **Simulation Never Invents PayPal Data** | `src/lib/paypal.ts:getPayPalOrderDetails()`, `src/app/api/test-bar/route.ts`, `src/app/api/restock/verify/route.ts` | `tests/audit-regressions.test.ts` (AUD-005, AUD-010, AUD-011) |
 
 ---
 
@@ -139,7 +143,7 @@ cp .env.example .env.local
 
 # 3. Run typecheck & automated tests
 npm run typecheck # runs tsc --noEmit across the full codebase
-npm test          # runs all unit and integration tests (162 tests across 15 files at time of writing)
+npm test          # runs the full Vitest suite
 
 # 4. Run the 24-Case Adversarial Benchmark
 npm run eval

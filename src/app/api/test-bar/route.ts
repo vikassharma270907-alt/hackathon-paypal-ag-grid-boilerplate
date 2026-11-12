@@ -57,17 +57,24 @@ export async function POST(req: NextRequest) {
         requestId
       );
 
+      const ok = trace.status < 400;
       return NextResponse.json({
         testType: "ESCROW_AUTH",
-        title: "1-Click Sandbox Escrow Authorization",
-        status: "SUCCESS",
-        orderId: (data as { id?: string })?.id || "ORD-2026-LIVE",
+        title: "1-Click Sandbox Authorization Hold",
+        status: ok ? "SUCCESS" : "FAILED",
+        mode: trace.simulated ? "SIMULATION" : "SANDBOX",
+        orderId: (data as { id?: string })?.id ?? null,
         authorizedAmount: "$2,450.00 USD",
         intent: "AUTHORIZE",
-        paypalDebugId: trace.paypalDebugId || "SANDBOX-DEBUG-ID-OK",
+        // Only a value PayPal actually returned; never a placeholder.
+        paypalDebugId: trace.paypalDebugId,
         latencyMs: trace.latencyMs,
         trace,
-        details: "Milestone Escrow Hold placed. 30% initial deposit authorized in PayPal Sandbox.",
+        details: !ok
+          ? `PayPal returned HTTP ${trace.status}; no hold was placed.`
+          : trace.simulated
+            ? "SIMULATION: no PayPal call was made (no sandbox credentials). No real hold exists."
+            : "Authorization hold created in PayPal Sandbox (payer approval still required).",
       });
     }
 
@@ -141,7 +148,8 @@ export async function POST(req: NextRequest) {
         title: "PayPal-Mock-Response: INSTRUMENT_DECLINED",
         status: "GRACEFUL_DECLINE_LOGGED",
         httpStatus: trace.status,
-        paypalDebugId: trace.paypalDebugId || "SIMULATED-CHAOS-DEBUG-99",
+        mode: trace.simulated ? "SIMULATION" : "SANDBOX",
+        paypalDebugId: trace.paypalDebugId,
         latencyMs: trace.latencyMs,
         responsePayload: data,
         trace,
@@ -306,7 +314,8 @@ export async function POST(req: NextRequest) {
         computedDigest: firewallResult.computedDigest,
         reasons: firewallResult.reasons,
         actionTaken: "FAIL_CLOSED_EXECUTION_BLOCKED",
-        paypalDebugId: "ATTACK-NEUTRALIZED-" + Date.now().toString(36).toUpperCase(),
+        // No PayPal call is made when the firewall blocks, so there is no PayPal-Debug-Id to show.
+        paypalCalled: false,
         latencyMs,
         details: "Malicious prompt injection intercepted by Deterministic Policy Firewall. Fails closed before any PayPal REST execution.",
         defensePipeline: [
@@ -392,15 +401,17 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({
         testType: "SMART_RFQ_SWARM",
         title: "Autonomous B2B RFQ Auction Swarm Completed",
-        status: "SUCCESS",
+        status: trace.status < 400 ? "SUCCESS" : "FAILED",
         productQuery,
         targetQuantity,
         budgetCapUsd: budgetCap,
         marketNorm: norm,
         winningBid: bids[0],
         allBids: bids,
-        orderId: (data as { id?: string })?.id || "ORD-RFQ-2026-WIN",
-        paypalDebugId: trace.paypalDebugId || "RFQ-SWARM-DEBUG-OK",
+        mode: trace.simulated ? "SIMULATION" : "SANDBOX",
+        bidsSource: "SIMULATION: illustrative supplier bids, not live quotes",
+        orderId: (data as { id?: string })?.id ?? null,
+        paypalDebugId: trace.paypalDebugId,
         latencyMs,
         details: `Autonomous RFQ Swarm evaluated 3 suppliers against Channel3 market norm ($${norm.meanPriceUsd.toFixed(2)}). Selected Apex Cloud Hardware ($2,450.00) with 30%/40%/30% milestone escrow hold.`,
       });
@@ -452,15 +463,15 @@ export async function POST(req: NextRequest) {
           deliveryRatio: "70.0% (14/20 units verified)",
           variancePct: 0.0,
         },
+        // This test makes no PayPal call, so it must not show PayPal identifiers it never received.
         paypalExecutionTrace: {
           orderId,
           intent: "AUTHORIZE",
-          authorizationId: "SIMULATED_AUTH_SAMPLE",
-          captureId: "SIMULATED_CAP_SAMPLE",
+          authorizationId: "none (simulation, no PayPal call)",
+          captureId: "none (simulation, no PayPal call)",
           finalCapture: false,
-          // No PayPal call is made for this certificate, so no real PayPal-Debug-Id exists.
-          paypalDebugId: "NOT_ISSUED (simulation)",
-          sandboxHost: "api-m.sandbox.paypal.com",
+          paypalDebugId: "none (simulation, no PayPal call)",
+          sandboxHost: "none (simulation)",
         },
         policyCompliance: {
           threeWayVarianceCheck: "PASS (0.0% <= 1.5%)",

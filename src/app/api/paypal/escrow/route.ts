@@ -56,6 +56,13 @@ export async function POST(req: NextRequest) {
     const accessToken = await getPayPalAccessToken();
     const requestId = generateRequestId("escrow");
 
+    // Settling a hold moves money: it always needs a human operator (operator key in production),
+    // never only the public sandbox-demo path.
+    if (action === "CAPTURE" || action === "VOID") {
+      const strictDenied = denyUnlessAuthorized(req, { strict: true });
+      if (strictDenied) return strictDenied;
+    }
+
     if (action === "CREATE_AUTHORIZATION") {
       // 1. Evaluate policy firewall before creating escrow authorization
       const policyCheck = evaluatePolicyFirewall({
@@ -79,6 +86,12 @@ export async function POST(req: NextRequest) {
           },
           { status: injection ? 403 : 422 }
         );
+      }
+
+      // NEEDS_APPROVAL is not a green light: an above-threshold hold needs a human operator.
+      if (policyCheck.status === "NEEDS_APPROVAL") {
+        const strictDenied = denyUnlessAuthorized(req, { strict: true });
+        if (strictDenied) return strictDenied;
       }
 
       // 2. Dispatch PayPal Orders v2 with intent: "AUTHORIZE"
@@ -187,19 +200,24 @@ export async function POST(req: NextRequest) {
       if (action === "CAPTURE") {
         const { data: authData, trace: authTrace } = await getAuthorizationDetails(accessToken, authorizationId);
         const authorized = (authData as { amount?: { value?: string } } | null)?.amount?.value;
-        if (authTrace.status < 400 && authorized !== undefined) {
-          const authorizedCents = Math.round(Number(authorized) * 100);
-          const captureCents = Math.round(Number(effectiveCaptureAmount) * 100);
-          if (!Number.isFinite(authorizedCents) || captureCents > authorizedCents) {
-            return NextResponse.json(
-              {
-                error: "Capture amount exceeds the amount PayPal reports as authorized.",
-                authorizedAmount: authorized,
-                requestedAmount: effectiveCaptureAmount,
-              },
-              { status: 422 }
-            );
-          }
+        // Fail closed: if PayPal's own record of the authorization cannot be read, do not capture.
+        if (authTrace.status >= 400 || authorized === undefined) {
+          return NextResponse.json(
+            { error: "Could not read the authorization from PayPal; capture refused.", trace: authTrace },
+            { status: 502 }
+          );
+        }
+        const authorizedCents = Math.round(Number(authorized) * 100);
+        const captureCents = Math.round(Number(effectiveCaptureAmount) * 100);
+        if (!Number.isFinite(authorizedCents) || captureCents > authorizedCents) {
+          return NextResponse.json(
+            {
+              error: "Capture amount exceeds the amount PayPal reports as authorized.",
+              authorizedAmount: authorized,
+              requestedAmount: effectiveCaptureAmount,
+            },
+            { status: 422 }
+          );
         }
       }
       const { data, trace } = await settleAuthorizationHold(

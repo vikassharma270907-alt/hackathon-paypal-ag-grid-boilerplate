@@ -16,10 +16,12 @@ import {
 export default function JudgesGuidePage() {
   const [resetting, setResetting] = useState(false);
   const [resetSuccess, setResetSuccess] = useState(false);
+  const [resetError, setResetError] = useState<string | null>(null);
 
   const handleResetDemo = async () => {
     setResetting(true);
     setResetSuccess(false);
+    setResetError(null);
     try {
       const res = await fetch('/api/restock', {
         method: 'POST',
@@ -29,9 +31,12 @@ export default function JudgesGuidePage() {
       if (res.ok) {
         setResetSuccess(true);
         setTimeout(() => setResetSuccess(false), 3000);
+      } else {
+        const body = await res.json().catch(() => null);
+        setResetError(body?.error ?? `Reset failed (HTTP ${res.status})`);
       }
     } catch (e) {
-      console.error('Failed to reset demo:', e);
+      setResetError(e instanceof Error ? `Reset failed: ${e.message}` : 'Reset failed');
     } finally {
       setResetting(false);
     }
@@ -69,6 +74,11 @@ export default function JudgesGuidePage() {
               <RotateCcw className={`size-3.5 ${resetting ? 'animate-spin' : ''}`} />
               {resetSuccess ? 'Demo State Reset!' : 'Reset Demo State'}
             </button>
+            {resetError && (
+              <span role="alert" className="text-xs text-red-300">
+                {resetError}
+              </span>
+            )}
             <Link
               href="/demo"
               className="flex items-center gap-1.5 px-4 py-1.5 text-xs font-semibold rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white transition shadow-sm"
@@ -349,9 +359,9 @@ export default function JudgesGuidePage() {
               </p>
             </div>
             <div className="p-4 rounded-xl bg-zinc-900/60 border border-zinc-800 space-y-1.5">
-              <div className="font-semibold text-white text-sm">PayPal Server SDK & Agent Toolkit</div>
+              <div className="font-semibold text-white text-sm">PayPal REST APIs (direct, Sandbox only)</div>
               <p className="text-xs text-zinc-400">
-                Two-Phase Orders v2 execution, pre-capture status verification, webhook signature verification, and read-only Model Context Protocol server.
+                Orders v2 create, pre-capture GET verification and capture; Payments v2 refunds with read-back; webhook signature verification. Called directly with fetch (no SDK). Plus our own read-only MCP server.
               </p>
             </div>
           </div>

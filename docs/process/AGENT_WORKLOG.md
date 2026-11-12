@@ -211,3 +211,13 @@ Verified: typecheck, lint, 131/131 tests, eval 24/24, `next build`.
   still use intent CAPTURE. Binding them is deliberately left alone: it would change the capture path that works
   and cannot be proven without a real Sandbox checkout.
 - Verified: tsc 0, eslint clean, 231/231 tests (22 files), eval 24/24, `next build` passes.
+
+---
+
+## Session 7 - Payment-safety audit (12 Nov 2026)
+
+- Worked in an isolated git worktree so the parallel agent's in-progress tree was never modified. Final work is stacked on its pushed branch `feat/hardening-and-demo-updates`.
+- Two read-only specialist reviews (payments/security, frontend) ran in parallel. Every finding was verified against the code before acting on it.
+- 17 findings (AUD-001 to AUD-017) are documented in `docs/audits/AUDIT_2026-11-12_PAYMENT_SAFETY.md`, with root cause, fix, and status.
+- The regression proof is in `tests/audit-regressions.test.ts`: 19/21 fail on the original code and 21/21 pass with the fixes.
+- Gates on the exact branch state: npm ci, tsc, eslint, 254/254 tests, eval 24/24, next build, npm audit (0 high), and an HTTP smoke test of the production server all pass. Browser E2E and live PayPal Sandbox were NOT RUN.

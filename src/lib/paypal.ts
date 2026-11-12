@@ -19,6 +19,14 @@ export class PayPalApiError extends Error {
   }
 }
 
+/** A payment rule refused the request (approval, state, budget). Maps to HTTP 409, not 500. */
+export class PaymentRuleError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'PaymentRuleError';
+  }
+}
+
 async function get<T>(path: string): Promise<T> {
   const token = await getPayPalAccessToken();
 
@@ -374,7 +382,7 @@ export async function getBalances(): Promise<Balances> {
 // RestockPilot Two-Phase Idempotent PayPal Orders v2 Engine
 // ============================================================================
 
-import { restockStore, computeSha256, type RestockClaim } from './restock-store';
+import { restockStore, computeSha256, type RestockClaim, type RestockPurchaseOrder } from './restock-store';
 
 /**
  * Hard Sandbox Host Guard
@@ -445,11 +453,13 @@ export async function createOrderForRestock(poId: string): Promise<RestockOrderR
 
   const mandate = restockStore.getMandate();
 
-  // Never overwrite a claim whose money already moved (or may have): that would lose the capture id
-  // and reopen capture/refund for the same purchase order.
+  // Never replace a claim whose money moved or may have moved. UNKNOWN means a PayPal write timed
+  // out: the order may exist and may even be captured, so it must be reconciled, not re-created.
   const existing = restockStore.getClaim(poId);
-  if (existing && ['CAPTURE_PENDING', 'CAPTURED', 'REFUNDED', 'RECONCILED'].includes(existing.status)) {
-    throw new Error(`Purchase order ${poId} already has a ${existing.status} payment; a new order was not created`);
+  if (existing && ['CAPTURE_PENDING', 'CAPTURED', 'REFUNDED', 'RECONCILED', 'UNKNOWN'].includes(existing.status)) {
+    throw new PaymentRuleError(
+      `Purchase order ${poId} already has a ${existing.status} payment; reconcile it instead of creating a new order`
+    );
   }
 
   // Re-verify budget, counting both captured spend and payments that are open but not yet
@@ -457,17 +467,19 @@ export async function createOrderForRestock(poId: string): Promise<RestockOrderR
   const reserved = restockStore.getReservedSpend({ poId });
   const committedCents = Math.round((restockStore.spendSoFar + reserved) * 100);
   if (committedCents + Math.round(po.totalPrice * 100) > Math.round(mandate.monthlyBudget * 100)) {
-    throw new Error(
+    throw new PaymentRuleError(
       `Budget breach: Order total $${po.totalPrice.toFixed(2)} with spend $${restockStore.spendSoFar.toFixed(2)} and open orders $${reserved.toFixed(2)} exceeds monthly budget $${mandate.monthlyBudget.toFixed(2)}`
     );
   }
 
   // Verify policy gate resolution
   if (po.decision === 'BLOCK') {
-    throw new Error(`Cannot execute payment: Purchase Order ${poId} is BLOCKed by mandate policy`);
+    throw new PaymentRuleError(`Cannot execute payment: Purchase Order ${poId} is BLOCKed by mandate policy`);
   }
-  if (po.decision === 'ASK' && !po.approvedByOwner) {
-    throw new Error(`Cannot execute payment: Purchase Order ${poId} requires explicit owner approval`);
+  // Every purchase order needs an explicit owner approval, ALLOW included. The owner's "Run cycle"
+  // button pre-approves ALLOW lines; the unattended morning run does not, so its drafts wait here.
+  if (!po.approvedByOwner) {
+    throw new PaymentRuleError(`Cannot execute payment: Purchase Order ${poId} requires explicit owner approval`);
   }
 
   const amountCents = Math.round(po.totalPrice * 100);
@@ -641,6 +653,53 @@ export async function createOrderForRestock(poId: string): Promise<RestockOrderR
   }
 }
 
+// ----------------------------------------------------------------------------
+// Per-purchase-order serialization for money-moving transitions.
+// Capture, reconcile and refund each read the claim, await PayPal, then mutate spend and stock.
+// Two overlapping calls for the same PO could both pass the status check before either mutates,
+// double-counting spend. Rejecting the second caller while the first is in flight closes that gap
+// (single-process in-memory store; a multi-instance deploy needs a DB row lock instead).
+// ----------------------------------------------------------------------------
+const paymentLocks = new Set<string>();
+
+export class PaymentInProgressError extends Error {
+  constructor(poId: string) {
+    super(`A payment action for ${poId} is already in progress; retry once it finishes`);
+    this.name = 'PaymentInProgressError';
+  }
+}
+
+async function withPaymentLock<T>(poId: string, fn: () => Promise<T>): Promise<T> {
+  if (paymentLocks.has(poId)) throw new PaymentInProgressError(poId);
+  paymentLocks.add(poId);
+  try {
+    return await fn();
+  } finally {
+    paymentLocks.delete(poId);
+  }
+}
+
+/**
+ * The single place a claim becomes CAPTURED. Spend and on-order stock are counted only on the
+ * transition into CAPTURED, so no path (capture, replay, reconcile) can count a purchase twice.
+ * Returns false when the claim was already captured (nothing counted).
+ */
+function applyCapture(
+  po: RestockPurchaseOrder,
+  claim: RestockClaim,
+  capture: { captureId?: string; paypalFee?: string }
+): boolean {
+  if (claim.status === 'CAPTURED' || claim.status === 'REFUNDED') return false;
+  claim.status = 'CAPTURED';
+  claim.paypalCaptureId = capture.captureId;
+  claim.paypalFee = capture.paypalFee;
+  claim.updatedAt = new Date().toISOString();
+  restockStore.saveClaim(claim);
+  restockStore.spendSoFar = Number((restockStore.spendSoFar + po.totalPrice).toFixed(2));
+  restockStore.updateOnOrder(po.sku, po.qty);
+  return true;
+}
+
 /**
  * Phase B: captureApprovedOrder(poId, paypalOrderId)
  * Invoked after the owner approves the order via PayPal JS SDK or Sandbox approval redirect.
@@ -653,6 +712,13 @@ export async function captureApprovedOrder(
   poId: string,
   paypalOrderId: string
 ): Promise<RestockCaptureResult> {
+  return withPaymentLock(poId, () => captureApprovedOrderUnlocked(poId, paypalOrderId));
+}
+
+async function captureApprovedOrderUnlocked(
+  poId: string,
+  paypalOrderId: string
+): Promise<RestockCaptureResult> {
   assertSandboxBaseUrl();
   const po = restockStore.getPurchaseOrder(poId);
   const claim = restockStore.getClaim(poId);
@@ -661,10 +727,14 @@ export async function captureApprovedOrder(
     throw new Error(`PO or Claim ${poId} not found in RestockPilot store`);
   }
 
+  if (po.decision === 'BLOCK' || !po.approvedByOwner) {
+    throw new PaymentRuleError(`Capture refused: purchase order ${poId} is not owner-approved`);
+  }
+
   // Ownership binding: only the order created for THIS purchase order may be captured. The caller-
   // supplied id is never trusted to choose the execution mode.
   if (!claim.paypalOrderId || claim.paypalOrderId !== paypalOrderId) {
-    throw new Error(`Order id does not match the order created for ${poId}; capture refused`);
+    throw new PaymentRuleError(`Order id does not match the order created for ${poId}; capture refused`);
   }
 
   // Replay safety: a second capture request must not double-count spend or on-order stock.
@@ -682,7 +752,7 @@ export async function captureApprovedOrder(
   }
   const CAPTURABLE_STATUSES = ['AWAITING_BUYER_APPROVAL', 'UNKNOWN', 'CAPTURE_PENDING'];
   if (!CAPTURABLE_STATUSES.includes(claim.status)) {
-    throw new Error(`Claim ${poId} is ${claim.status}; only an approved, uncaptured order can be captured`);
+    throw new PaymentRuleError(`Claim ${poId} is ${claim.status}; only an approved, uncaptured order can be captured`);
   }
 
   const token = await getPayPalAccessToken();
@@ -697,16 +767,9 @@ export async function captureApprovedOrder(
 
   if (isSimulated) {
     const simulatedCaptureId = `SIMULATED_CAP_${poId.replace(/[^a-zA-Z0-9]/g, '')}_${Date.now().toString(36)}`;
-    claim.status = 'CAPTURED';
-    claim.paypalCaptureId = simulatedCaptureId;
-    claim.paypalFee = (po.totalPrice * 0.029 + 0.3).toFixed(2);
     claim.paypalRequestIdCapture = paypalRequestIdCapture;
-    claim.updatedAt = new Date().toISOString();
-    restockStore.saveClaim(claim);
-
-    // Update inventory onOrder and spendSoFar
-    restockStore.spendSoFar += po.totalPrice;
-    restockStore.updateOnOrder(po.sku, po.qty);
+    // Fee is an estimate in simulation (no PayPal response exists to read it from).
+    applyCapture(po, claim, { captureId: simulatedCaptureId, paypalFee: (po.totalPrice * 0.029 + 0.3).toFixed(2) });
 
     restockStore.addLedgerEntry({
       id: `LEDGER-${Date.now().toString(36)}`,
@@ -819,15 +882,11 @@ export async function captureApprovedOrder(
     const captureId = firstCapture?.id;
     const paypalFee = firstCapture?.seller_receivable_breakdown?.paypal_fee?.value || '0.00';
 
-    claim.status = 'CAPTURED';
-    claim.paypalCaptureId = captureId;
-    claim.paypalFee = paypalFee;
-    claim.updatedAt = new Date().toISOString();
-    restockStore.saveClaim(claim);
-
-    // Update inventory onOrder and monthly spend
-    restockStore.spendSoFar += po.totalPrice;
-    restockStore.updateOnOrder(po.sku, po.qty);
+    if (!captureId) {
+      // PayPal accepted the call but returned no capture: the outcome is not known. Reconcile it.
+      throw new Error('Capture response did not include a capture id');
+    }
+    applyCapture(po, claim, { captureId, paypalFee });
 
     restockStore.addLedgerEntry({
       id: `LEDGER-${Date.now().toString(36)}`,
@@ -871,6 +930,13 @@ export async function captureApprovedOrder(
  * Recovers claims in UNKNOWN state without risking duplicate writes.
  */
 export async function reconcileUnknownOrder(poId: string): Promise<RestockClaim> {
+  return withPaymentLock(poId, () => reconcileUnknownOrderUnlocked(poId));
+}
+
+/** Only an outcome we genuinely do not know may be reconciled. Anything else is already settled. */
+const RECONCILABLE_STATUSES = ['UNKNOWN', 'CAPTURE_PENDING'];
+
+async function reconcileUnknownOrderUnlocked(poId: string): Promise<RestockClaim> {
   assertSandboxBaseUrl();
   const po = restockStore.getPurchaseOrder(poId);
   const claim = restockStore.getClaim(poId);
@@ -878,14 +944,37 @@ export async function reconcileUnknownOrder(poId: string): Promise<RestockClaim>
   if (!po || !claim || !claim.paypalOrderId) {
     throw new Error(`PO or Claim ${poId} with PayPal Order ID not found`);
   }
+  if (!RECONCILABLE_STATUSES.includes(claim.status)) {
+    throw new PaymentRuleError(
+      `Claim ${poId} is ${claim.status}; only UNKNOWN or CAPTURE_PENDING outcomes can be reconciled`
+    );
+  }
 
   const token = await getPayPalAccessToken();
   const isSimulated = getExecutionMode() === 'SIMULATED' || isUsingSimulatedToken() || token.startsWith('simulated_') || claim.paypalOrderId.startsWith('SIMULATED_');
 
   if (isSimulated) {
-    claim.status = 'CAPTURED';
-    claim.updatedAt = new Date().toISOString();
-    restockStore.saveClaim(claim);
+    // No PayPal record exists to read in simulation. Resolve the unknown outcome as captured and
+    // count it exactly once, with an id and ledger note that say it is simulated.
+    const simulatedCaptureId = `SIMULATED_CAP_${poId.replace(/[^a-zA-Z0-9]/g, '')}_${Date.now().toString(36)}`;
+    if (applyCapture(po, claim, { captureId: simulatedCaptureId, paypalFee: (po.totalPrice * 0.029 + 0.3).toFixed(2) })) {
+      restockStore.addLedgerEntry({
+        id: `LEDGER-${Date.now().toString(36)}`,
+        timestamp: new Date().toISOString(),
+        step: 'Reconciliation (simulated)',
+        sku: po.sku,
+        merchant: po.merchantName,
+        qty: po.qty,
+        total: po.totalPrice,
+        savingsVsMedian: Math.max(0, (po.verifiedMedianPrice - po.unitPrice) * po.qty),
+        decision: po.decision,
+        status: 'RECONCILED',
+        paypalOrderId: claim.paypalOrderId,
+        paypalCaptureId: simulatedCaptureId,
+        idempotencyHash: claim.paypalRequestIdCapture || claim.paypalRequestIdCreate,
+        notes: 'SIMULATION: unknown outcome resolved locally; no PayPal call was made.',
+      });
+    }
     return claim;
   }
   const res = await fetch(`${BASE_URL}/v2/checkout/orders/${encodeURIComponent(claim.paypalOrderId)}`, {
@@ -913,11 +1002,10 @@ export async function reconcileUnknownOrder(poId: string): Promise<RestockClaim>
   const capture = orderData.purchase_units?.[0]?.payments?.captures?.[0];
 
   if (orderData.status === 'COMPLETED' && capture) {
-    claim.status = 'CAPTURED';
-    claim.paypalCaptureId = capture.id;
-    claim.paypalFee = capture.seller_receivable_breakdown?.paypal_fee?.value || '0.00';
-    claim.updatedAt = new Date().toISOString();
-    restockStore.saveClaim(claim);
+    applyCapture(po, claim, {
+      captureId: capture.id,
+      paypalFee: capture.seller_receivable_breakdown?.paypal_fee?.value || '0.00',
+    });
 
     restockStore.addLedgerEntry({
       id: `LEDGER-${Date.now().toString(36)}`,
@@ -952,14 +1040,18 @@ export async function getPayPalOrderDetails(paypalOrderId: string): Promise<Reco
   const mode = getExecutionMode();
 
   if (mode === 'SIMULATED' || paypalOrderId.startsWith('SIMULATED_')) {
+    // There is no PayPal record to read. Report what THIS app stored, clearly labelled, and never
+    // invent a PayPal status, amount, or timestamp.
+    const claim = Array.from(restockStore.claims.values()).find((c) => c.paypalOrderId === paypalOrderId);
     return {
       id: paypalOrderId,
-      status: 'COMPLETED',
-      intent: 'CAPTURE',
-      mode: 'SIMULATED',
-      amount: { currency_code: 'USD', value: '868.00' },
-      create_time: new Date().toISOString(),
-      simulatedNotice: 'Verified against local simulated store (no live API keys)',
+      mode: 'SIMULATION',
+      paypalReadBack: false,
+      localClaimStatus: claim?.status ?? 'NOT_FOUND',
+      localAmount: claim ? { currency_code: claim.currency, value: claim.amount.toFixed(2) } : null,
+      localCaptureId: claim?.paypalCaptureId ?? null,
+      simulatedNotice:
+        'SIMULATION: no PayPal Sandbox call was made (no sandbox credentials, or a SIMULATED_ id). This is the local record only.',
     };
   }
 
@@ -1005,13 +1097,17 @@ export async function refundCapturedOrder(
   poId: string,
   reason = 'Owner-initiated refund'
 ): Promise<RestockRefundResult> {
+  return withPaymentLock(poId, () => refundCapturedOrderUnlocked(poId, reason));
+}
+
+async function refundCapturedOrderUnlocked(poId: string, reason: string): Promise<RestockRefundResult> {
   assertSandboxBaseUrl();
   const po = restockStore.getPurchaseOrder(poId);
   const claim = restockStore.getClaim(poId);
   if (!po || !claim) throw new Error(`PO or Claim ${poId} not found in RestockPilot store`);
-  if (claim.status === 'REFUNDED') throw new Error(`Order ${poId} was already refunded`);
+  if (claim.status === 'REFUNDED') throw new PaymentRuleError(`Order ${poId} was already refunded`);
   if (claim.status !== 'CAPTURED' || !claim.paypalCaptureId) {
-    throw new Error(`Only CAPTURED orders can be refunded (status: ${claim.status})`);
+    throw new PaymentRuleError(`Only CAPTURED orders can be refunded (status: ${claim.status})`);
   }
 
   const captureId = claim.paypalCaptureId;
@@ -1086,8 +1182,7 @@ export async function refundCapturedOrder(
   const amountOk = refund?.amount?.value === po.totalPrice.toFixed(2) && refund?.amount?.currency_code === 'USD';
 
   if (status === 'COMPLETED' && amountOk) {
-    // A concurrent request that shares this idempotency key may already have restored the budget.
-    // PayPal refunded exactly once, so report success without restoring twice.
+    // Defence in depth (the per-PO lock already serializes refunds): never restore budget twice.
     if (restockStore.getClaim(poId)?.status === 'REFUNDED') {
       return {
         success: true,
@@ -1097,7 +1192,7 @@ export async function refundCapturedOrder(
         refundStatus: status,
         spendSoFar: restockStore.spendSoFar,
         paypalRequestIdRefund,
-        message: 'Refund already completed by a concurrent request; budget was restored once.',
+        message: 'Refund already completed; budget was restored once.',
       };
     }
     const r = restockStore.restoreBudgetForRefund(poId, reason, created.id);
