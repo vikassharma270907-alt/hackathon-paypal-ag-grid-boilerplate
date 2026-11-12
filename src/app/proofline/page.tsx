@@ -951,9 +951,29 @@ Delivery target is December 15, 2026. Please confirm!`
                           </td>
                           <td className="p-3 font-mono text-zinc-300">
                             {matchedInvoice?.providerInvoiceId ? (
-                              <span className="bg-zinc-850 px-2 py-0.5 rounded border border-zinc-700">
-                                {matchedInvoice.providerInvoiceId}
-                              </span>
+                              <div className="flex flex-col items-start gap-1">
+                                <span className="bg-zinc-850 px-2 py-0.5 rounded border border-zinc-700">
+                                  {matchedInvoice.providerInvoiceId}
+                                </span>
+                                <div className="flex items-center gap-2">
+                                  <a
+                                    href={`/proofline/invoice/${encodeURIComponent(matchedInvoice.id)}`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="text-[11px] font-sans font-semibold text-blue-400 hover:text-blue-300 underline"
+                                  >
+                                    View PayPal Invoice ↗
+                                  </a>
+                                  {/SIM|PRFL/.test(matchedInvoice.providerInvoiceId) && (
+                                    <span
+                                      className="text-[10px] px-1.5 py-0.5 rounded bg-amber-950 text-amber-300 border border-amber-800"
+                                      title="Generated locally: PayPal sandbox app lacks Invoicing permission"
+                                    >
+                                      SIMULATED
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
                             ) : (
                               <span className="text-zinc-400 italic">Not created</span>
                             )}
