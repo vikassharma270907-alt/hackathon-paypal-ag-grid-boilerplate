@@ -162,7 +162,7 @@ export function UserEditModal({ isOpen, onClose, onSave, initialUser }: UserEdit
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-slate-300 mb-1">Total Settled Escrow Spend (USD)</label>
+            <label className="block text-xs font-medium text-slate-300 mb-1">Total Settled Spend (USD)</label>
             <input
               type="number"
               step="0.01"

@@ -445,10 +445,13 @@ export async function createOrderForRestock(poId: string): Promise<RestockOrderR
 
   const mandate = restockStore.getMandate();
 
-  // Re-verify budget constraint
-  if (restockStore.spendSoFar + po.totalPrice > mandate.monthlyBudget) {
+  // Re-verify budget, counting both captured spend and payments that are open but not yet
+  // captured, so concurrent unpaid orders cannot jointly exceed the monthly budget.
+  const reserved = restockStore.getReservedSpend({ poId });
+  const committedCents = Math.round((restockStore.spendSoFar + reserved) * 100);
+  if (committedCents + Math.round(po.totalPrice * 100) > Math.round(mandate.monthlyBudget * 100)) {
     throw new Error(
-      `Budget breach: Order total $${po.totalPrice.toFixed(2)} with spend $${restockStore.spendSoFar.toFixed(2)} exceeds monthly budget $${mandate.monthlyBudget.toFixed(2)}`
+      `Budget breach: Order total $${po.totalPrice.toFixed(2)} with spend $${restockStore.spendSoFar.toFixed(2)} and open orders $${reserved.toFixed(2)} exceeds monthly budget $${mandate.monthlyBudget.toFixed(2)}`
     );
   }
 

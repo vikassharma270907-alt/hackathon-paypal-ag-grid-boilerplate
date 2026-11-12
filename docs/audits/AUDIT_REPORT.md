@@ -221,3 +221,21 @@ Verification: `tsc` 0 errors, `eslint` clean, `vitest` 19 files / 194 tests pass
 - **Dependencies:** 11 production advisories (6 high) remain; the `@paypal/agent-toolkit` chain and `zod` 3.x need major-version decisions.
 - **Receipts:** `/api/receipt` signs claim IDs without marking `SIMULATED_*` identifiers.
 - **Not run:** browser E2E, automated accessibility scan, PayPal Sandbox lifecycle (no credentials), GitHub Actions.
+
+## 2026-11-12 Pass 3: follow-ups to the Pass 2 open list
+
+| ID | Sev | Item | Change | Status |
+|---|---|---|---|---|
+| SEC-301 | P1 | About 15 new mutating routes (`proofline/*`, `restock/basket`, `receipt`, `red-team`, `mcp`) and the Gemini/ML/Channel3/AI-chat routes had no auth or limits. | `src/proxy.ts` (Next 16 Proxy): default-deny gate on every non-GET `/api` call via `api-guard`; 256 KB body cap (64 KB on AI routes); per-client rate limit (30/min) on quota-spending routes; AI traces read gated. Webhook (signature) and cron (bearer) exempt. | VERIFIED |
+| SEC-302 | P1 | Budget race: budget checked at order creation, spend counted at capture. | `restockStore.getReservedSpend()` counts open claims and open basket holds; used by single-order create, basket create and basket settle (integer cents). | VERIFIED |
+| SEC-303 | P2 | 11 production advisories (6 high). | Removed unused `@paypal/agent-toolkit` (never imported; carried 10 advisories). `zod` 3.25 to 4.6.7 (exact pin). `npm audit --omit=dev`: 0 vulnerabilities. | VERIFIED |
+| SEC-304 | P3 | `GET /api/restock` returned raw PayPal error bodies. | `errorDetails` redacted unless the operator key is presented. | VERIFIED |
+| UI-301 | P2 | "Escrow" used as a product claim in about 50 UI strings. | Reworded to authorization-hold / settlement language; explicit "not escrow" disclaimers kept. Identifiers, enum values and API paths unchanged. | VERIFIED |
+| UI-302 | P2 | Hard-coded PayPal-looking IDs shown as real. | ILLUSTRATIVE SAMPLE labels on pipeline and radar; SAMPLE tag on seeded audit rows; the test-bar certificate is `dataMode: SIMULATION` with `SIMULATED_*` ids and no fabricated debug id; the modal shows a SIMULATION banner and no longer falls back to a built-in certificate; seeded ledger row labelled. | VERIFIED |
+
+Verification: see the PR. Gates were run in a clean worktree after `npm ci`.
+
+### Still open
+- **In-memory payment state:** claims, spend, approvals and processed webhook ids live in process memory, so they are lost on restart and not shared across instances. Fixing this needs a datastore decision (Render Postgres, SQLite on a disk, Redis). Not done here because it is an architecture choice.
+- **Rate limiter is per instance:** it shares the same limitation as the payment state.
+- **Not run:** browser E2E, automated accessibility scan, PayPal Sandbox lifecycle.

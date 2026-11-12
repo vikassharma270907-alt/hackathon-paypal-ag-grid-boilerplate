@@ -45,7 +45,7 @@ const INITIAL_AUDIT_LOGS: AuditEntry[] = [
     httpStatus: 201,
     latencyMs: 182,
     paypalDebugId: 'LIVE-DBG-88219A',
-    details: 'Milestone Escrow Hold created in PayPal Sandbox for $2,450.00 USD.',
+    details: 'Milestone Authorization Hold created in PayPal Sandbox for $2,450.00 USD.',
   },
   {
     id: 'AUD-004',
@@ -57,6 +57,9 @@ const INITIAL_AUDIT_LOGS: AuditEntry[] = [
     details: '3-Way match variance 5.00% > 1.5% threshold. Capture frozen into audit queue.',
   },
 ];
+
+// Seed rows are illustrative; they are tagged SAMPLE in the UI so they are never read as PayPal traces.
+const SAMPLE_IDS = new Set(INITIAL_AUDIT_LOGS.map((l) => l.id));
 
 interface CosmosAuditDrawerProps {
   externalLogs?: AuditEntry[];
@@ -82,7 +85,9 @@ export function CosmosAuditDrawer({ externalLogs }: CosmosAuditDrawerProps = {})
               Cosmos.AI &amp; PayPal REST Audit Drawer
             </h3>
             <p className="text-[11px] text-zinc-400">
-              Live double-authorization traces, SHA-256 digests &amp; PayPal-Debug-Id headers
+              Double-authorization traces, SHA-256 digests &amp; PayPal-Debug-Id headers.{' '}
+              <span className="font-mono text-amber-300">SAMPLE</span> rows are illustrative seed data, not PayPal
+              responses; rows from your own test runs appear above them.
             </p>
           </div>
         </div>
@@ -140,6 +145,9 @@ export function CosmosAuditDrawer({ externalLogs }: CosmosAuditDrawerProps = {})
                 </div>
 
                 <div className="flex items-center gap-2 text-zinc-500 text-[10px]">
+                  {SAMPLE_IDS.has(log.id) && (
+                    <span className="px-1 rounded border border-amber-800/60 bg-amber-950/50 text-amber-300">SAMPLE</span>
+                  )}
                   <span>{log.latencyMs}ms</span>
                   <span>{log.timestamp.slice(11, 19)}</span>
                 </div>

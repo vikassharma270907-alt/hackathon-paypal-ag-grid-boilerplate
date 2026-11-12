@@ -183,14 +183,14 @@ export default function WalkthroughPage() {
               <p className="text-xs text-slate-400 leading-relaxed">
                 This media module powers the video submission and demonstration of{' '}
                 <strong>Pactra / VeriSettle AI</strong> for the PayPal AI Hackathon 2026, showcasing
-                autonomous milestone escrow holds, multimodal invoice matching, and deterministic policy defense.
+                autonomous milestone authorization holds, multimodal invoice matching, and deterministic policy defense.
               </p>
               <div className="pt-2">
                 <Link
                   href="/dashboard"
                   className="flex items-center justify-center gap-2 w-full py-2 px-3 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs font-semibold text-white transition-colors"
                 >
-                  <span>Launch Live Escrow Command Center</span>
+                  <span>Launch Live Hold Command Center</span>
                   <ArrowRight className="w-3.5 h-3.5" />
                 </Link>
               </div>

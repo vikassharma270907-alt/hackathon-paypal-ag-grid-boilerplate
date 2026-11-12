@@ -110,7 +110,7 @@ export default function UserDetailPage({ params }: { params: Promise<{ id: strin
               }`}
             >
               {isSuspended ? <Unlock className="w-3.5 h-3.5" /> : <Lock className="w-3.5 h-3.5" />}
-              <span>{isSuspended ? 'Unfreeze Escrow' : 'Freeze Account'}</span>
+              <span>{isSuspended ? 'Unfreeze Account' : 'Freeze Account'}</span>
             </button>
           </div>
         </div>
@@ -180,7 +180,7 @@ export default function UserDetailPage({ params }: { params: Promise<{ id: strin
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 shadow-sm">
             <div className="flex items-center justify-between text-slate-400 text-xs mb-1">
-              <span>Lifetime Escrow Volume</span>
+              <span>Lifetime Settled Volume</span>
               <DollarSign className="w-4 h-4 text-emerald-400" />
             </div>
             <div className="text-2xl font-bold font-mono text-emerald-400">
@@ -232,7 +232,7 @@ export default function UserDetailPage({ params }: { params: Promise<{ id: strin
             <div className="flex items-center justify-between">
               <div>
                 <h2 className="text-sm font-bold text-white flex items-center gap-2">
-                  <span>6-Month Escrow Settlement Volume ($ USD)</span>
+                  <span>6-Month Settlement Volume ($ USD)</span>
                 </h2>
                 <p className="text-xs text-slate-400">
                   Monthly progression of authorized milestone payments
@@ -306,7 +306,7 @@ export default function UserDetailPage({ params }: { params: Promise<{ id: strin
           <div className="p-4 sm:p-5 border-b border-slate-800 flex items-center justify-between">
             <div>
               <h2 className="text-sm sm:text-base font-bold text-white">
-                Recent Escrow Orders &amp; Settlement Trace
+                Recent Held Orders &amp; Settlement Trace
               </h2>
               <p className="text-xs text-slate-400">
                 Verified PayPal Authorizations v2 captures and 3-way match variances
