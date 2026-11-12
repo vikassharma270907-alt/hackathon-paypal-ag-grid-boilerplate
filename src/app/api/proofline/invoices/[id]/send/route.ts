@@ -27,6 +27,7 @@ export async function POST(
     }
 
     invoice.status = 'SENT';
+    if (adapterRes.hostedPaymentUrl) invoice.hostedPaymentUrl = adapterRes.hostedPaymentUrl;
     invoice.lastReadbackAt = new Date().toISOString();
     invoice.readbackRawStatus = adapterRes.rawStatus || 'SENT';
 

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prooflineStore } from '@/lib/proofline/store';
+import { recordPayPalInvoicePayment } from '@/lib/proofline/paypal-invoicing-adapter';
 
 export async function POST(
   req: NextRequest,
@@ -11,6 +12,14 @@ export async function POST(
 
     if (!invoice) {
       return NextResponse.json({ error: 'Invoice not found' }, { status: 404 });
+    }
+
+    // For real sandbox invoices, record the payment on PayPal so reconcile reads PAID.
+    if (invoice.providerInvoiceId) {
+      const rec = await recordPayPalInvoicePayment(invoice.providerInvoiceId, invoice.amountMinor, invoice.currency);
+      if (!rec.success) {
+        return NextResponse.json({ error: rec.error, paypalDebugId: rec.paypalDebugId }, { status: 502 });
+      }
     }
 
     const paidAt = new Date().toISOString();

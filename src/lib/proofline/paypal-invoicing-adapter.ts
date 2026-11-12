@@ -87,10 +87,8 @@ export async function createPayPalInvoiceOnSandbox(
         },
       },
     ],
-    amount: {
-      currency_code: payload.currency,
-      value: majorAmount,
-    },
+    // No top-level `amount`: PayPal computes it from items. Sending it without a
+    // full breakdown triggers 400 INVALID_REQUEST /amount/value calculation_error.
     configuration: {
       allow_tip: false,
       tax_calculated_after_discount: true,
@@ -147,16 +145,20 @@ export async function createPayPalInvoiceOnSandbox(
     const data = (await res.json()) as Record<string, unknown>;
     const invId = (data.id as string) || (data.invoice_id as string);
 
-    // Find client payment URL if provided in links
+    // Only the payer-view link is a browser URL; `self` points at the REST API.
     const links = data.links as Array<{ rel?: string; href?: string }> | undefined;
-    const paymentLink = links?.find((l) => l.rel === 'payer-view' || l.rel === 'self');
+    const paymentLink = links?.find((l) => l.rel === 'payer-view');
+    const detail = data.detail as { metadata?: { recipient_view_url?: string } } | undefined;
 
     return {
       success: true,
       providerInvoiceId: invId,
       status: 'CREATED',
       rawStatus: (data.status as string) || 'DRAFT',
-      hostedPaymentUrl: paymentLink?.href || `https://www.sandbox.paypal.com/invoice/p/#${invId}`,
+      hostedPaymentUrl:
+        paymentLink?.href ||
+        detail?.metadata?.recipient_view_url ||
+        `https://www.sandbox.paypal.com/invoice/p/#${invId}`,
       paypalDebugId: debugId,
       simulated: false,
     };
@@ -221,11 +223,21 @@ export async function sendPayPalInvoiceOnSandbox(
       };
     }
 
+    // Send responds with { links: [{ rel: 'payer-view', href }] } (body may be empty on 202).
+    let payerViewUrl: string | undefined;
+    try {
+      const sent = (await res.json()) as { links?: Array<{ rel?: string; href?: string }>; href?: string };
+      payerViewUrl = sent.links?.find((l) => l.rel === 'payer-view')?.href || sent.href;
+    } catch {
+      /* empty body */
+    }
+
     return {
       success: true,
       providerInvoiceId,
       status: 'SENT',
       rawStatus: 'SENT',
+      hostedPaymentUrl: payerViewUrl,
       paypalDebugId: debugId,
       simulated: false,
     };
@@ -336,3 +348,53 @@ export async function readbackPayPalInvoice(
   }
 }
 
+
+/**
+ * Records an external payment against a real sandbox invoice so PayPal's own
+ * status becomes MARKED_AS_PAID / PAID and server-side reconcile agrees.
+ * (POST /v2/invoicing/invoices/{id}/payments)
+ */
+export async function recordPayPalInvoicePayment(
+  providerInvoiceId: string,
+  amountMinor: number,
+  currency: CurrencyCode
+): Promise<{ success: boolean; simulated: boolean; paypalDebugId?: string; error?: string }> {
+  const token = await getPayPalAccessToken();
+  const isSimulated =
+    isUsingSimulatedToken() || providerInvoiceId.includes('SIM') || providerInvoiceId.includes('PRFL');
+  if (isSimulated) return { success: true, simulated: true };
+
+  try {
+    const res = await fetch(
+      `${PAYPAL_BASE_URL}/v2/invoicing/invoices/${encodeURIComponent(providerInvoiceId)}/payments`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+          'PayPal-Request-Id': generateRequestId(`pay-${providerInvoiceId}`),
+        },
+        body: JSON.stringify({
+          method: 'PAYPAL',
+          payment_date: new Date().toISOString().slice(0, 10),
+          amount: { currency_code: currency, value: (amountMinor / 100).toFixed(2) },
+          note: 'Sandbox client payment recorded by Proofline demo',
+        }),
+      }
+    );
+    const debugId = res.headers.get('paypal-debug-id') || undefined;
+    if (!res.ok) {
+      const text = await res.text();
+      return {
+        success: false,
+        simulated: false,
+        paypalDebugId: debugId,
+        error: `PayPal record-payment error (${res.status}): ${text.slice(0, 300)}`,
+      };
+    }
+    return { success: true, simulated: false, paypalDebugId: debugId };
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    return { success: false, simulated: false, error: `Network failure recording payment: ${msg}` };
+  }
+}

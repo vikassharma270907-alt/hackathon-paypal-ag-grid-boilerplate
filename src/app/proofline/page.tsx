@@ -331,6 +331,9 @@ export default function ProoflinePage() {
       const res = await fetch(`/api/proofline/invoices/${invoiceId}/send`, { method: 'POST' });
       if (res.ok) {
         await loadProject();
+      } else {
+        const data = (await res.json().catch(() => ({}))) as { error?: string };
+        alert(data.error || 'Sending invoice failed');
       }
     } catch (err) {
       console.error(err);
@@ -346,6 +349,9 @@ export default function ProoflinePage() {
       const res = await fetch(`/api/proofline/invoices/${invoiceId}/reconcile`, { method: 'POST' });
       if (res.ok) {
         await loadProject();
+      } else {
+        const data = (await res.json().catch(() => ({}))) as { error?: string };
+        alert(data.error || 'Reconcile failed');
       }
     } catch (err) {
       console.error(err);
@@ -361,6 +367,9 @@ export default function ProoflinePage() {
       const res = await fetch(`/api/proofline/invoices/${invoiceId}/simulate-payment`, { method: 'POST' });
       if (res.ok) {
         await loadProject();
+      } else {
+        const data = (await res.json().catch(() => ({}))) as { error?: string };
+        alert(data.error || 'Recording payment failed');
       }
     } catch (err) {
       console.error(err);
