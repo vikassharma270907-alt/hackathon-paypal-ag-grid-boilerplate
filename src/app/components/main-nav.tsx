@@ -11,6 +11,8 @@ import {
   Home,
   ExternalLink,
   Video,
+  FileCheck,
+  Coffee,
 } from 'lucide-react';
 
 export function MainNav() {
@@ -18,12 +20,15 @@ export function MainNav() {
 
   const navItems = [
     { href: '/', label: 'Home', icon: Home },
+    { href: '/demo', label: 'RestockPilot Café', icon: Coffee },
+    { href: '/evidence', label: 'Evidence', icon: ShieldCheck },
+    { href: '/proofline', label: 'Proofline (Scope & Invoicing)', icon: FileCheck },
     { href: '/dashboard', label: 'Command Center', icon: ShieldCheck },
     { href: '/users', label: 'Users', icon: Users },
     { href: '/products', label: 'Products', icon: Package },
-    { href: '/ai-sandbox', label: 'AI Sandbox & Langfuse', icon: Sparkles },
+    { href: '/ai-sandbox', label: 'AI Sandbox', icon: Sparkles },
     { href: '/walkthrough', label: 'Walkthrough', icon: Video },
-    { href: '/availability', label: 'System Health', icon: Activity },
+    { href: '/availability', label: 'Health', icon: Activity },
   ];
 
   return (
