@@ -14,6 +14,7 @@ import {
 } from '@/lib/policy';
 import { CHANNEL3_SEEDED_OFFERS } from '@/lib/channel3-seed-offers';
 import { computeBaseUnitPrice } from '@/lib/units';
+import { assessShelfLife } from '@/lib/shelf-life';
 
 export const SERVER_NAME = 'RestockPilot Read-Only MCP';
 
@@ -108,6 +109,7 @@ export function callReadOnlyTool(name: string, args?: Record<string, unknown>): 
             suggestedQty: r.calc.suggestedQty,
             daysOfStockLeft: computeCoverage(r.item).daysOfStockLeft,
             twoWeekCoverageQty: computeCoverage(r.item, 14).coverageQty,
+            shelfLife: assessShelfLife(r.item, r.calc.suggestedQty),
           })),
         totalDuplicateSpendPrevented: Number(
           rows.reduce((sum, r) => sum + (r.calc.duplicateOrderPreventedSpend ?? 0), 0).toFixed(2)
@@ -140,13 +142,18 @@ export function callReadOnlyTool(name: string, args?: Record<string, unknown>): 
       if (!calc.needsReorder || calc.suggestedQty <= 0) {
         return { sku, proposal: null, reason: 'Net inventory position is above the reorder point' };
       }
+      const shelfLife = assessShelfLife(item, calc.suggestedQty);
+      if (shelfLife.status === 'HOLD') {
+        return { sku, proposal: null, reason: shelfLife.reason, shelfLife };
+      }
+      const qty = shelfLife.allowedQty;
       const offers = offersFor(sku);
       const median = computeVerifiedPeerMedian(offers);
       const offer =
         offers.find((o) => o.sameProduct && o.inStock && o.unitPrice >= 0.65 * median) ??
         offers.find((o) => o.sameProduct && o.inStock);
       if (!offer) return { sku, proposal: null, reason: 'No verified in-stock offer found' };
-      const totalPrice = Number((offer.unitPrice * calc.suggestedQty).toFixed(2));
+      const totalPrice = Number((offer.unitPrice * qty).toFixed(2));
       const policy = evaluateMandate(
         restockStore.getMandate(),
         restockStore.spendSoFar,
@@ -158,13 +165,14 @@ export function callReadOnlyTool(name: string, args?: Record<string, unknown>): 
         draft: true,
         persisted: false,
         proposal: {
-          qty: calc.suggestedQty,
+          qty,
           merchantName: offer.merchantName,
           unitPrice: offer.unitPrice,
           totalPrice,
           verifiedPeerMedianPrice: median,
         },
         policy: { decision: policy.decision, reasons: policy.reasons },
+        shelfLife,
         note: 'Owner approval in the RestockPilot UI is required before any PayPal action.',
       };
     }

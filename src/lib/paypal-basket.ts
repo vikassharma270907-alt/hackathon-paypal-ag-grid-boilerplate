@@ -143,8 +143,10 @@ export async function createBasketAuthorization(poIds: string[]): Promise<Basket
   }
   const totalCents = lines.reduce((s, l) => s + l.lineCents, 0);
   if (!mandate.active) violations.push('Mandate is not active');
-  if (restockStore.spendSoFar + totalCents / 100 > mandate.monthlyBudget) {
-    violations.push('Authorization hold would exceed the monthly budget');
+  // Open (uncaptured) orders and holds already reserve budget; count them too.
+  const committedCents = Math.round((restockStore.spendSoFar + restockStore.getReservedSpend()) * 100);
+  if (committedCents + totalCents > Math.round(mandate.monthlyBudget * 100)) {
+    violations.push('Authorization hold would exceed the monthly budget (including open orders)');
   }
   const overlapping = listBaskets().find(
     (b) => !TERMINAL.has(b.status) && b.lines.some((l) => ids.includes(l.poId)),
@@ -332,7 +334,12 @@ export async function settleBasket(basketId: string, approvedPoIds: string[]): P
   if (!basket.authorizationId) throw new Error('Basket has no authorization to settle');
 
   const mandate = restockStore.getMandate();
-  const violations = validateSettlement(basket, approvedPoIds, mandate, restockStore.spendSoFar);
+  const violations = validateSettlement(
+    basket,
+    approvedPoIds,
+    mandate,
+    restockStore.spendSoFar + restockStore.getReservedSpend({ basketId: basket.id }),
+  );
   if (violations.length) throw new BasketRuleError(violations);
 
   const plan = computeSettlement(basket.lines, approvedPoIds);

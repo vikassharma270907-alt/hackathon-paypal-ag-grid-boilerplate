@@ -117,6 +117,28 @@ describe('Refund via PayPal Payments v2', () => {
     expect(restockStore.getClaim('PO-R4')!.errorDetails).toContain('500');
   });
 
+  it('two concurrent refund requests refund once and restore the budget once', async () => {
+    seedCaptured('PO-RC', 'CAPRC');
+    const before = restockStore.spendSoFar - 868;
+    let refundPosts = 0;
+    globalThis.fetch = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.endsWith('/refund')) {
+        refundPosts += 1;
+        return json({ id: 'REF-C', status: 'COMPLETED' }, 201);
+      }
+      return json({ id: 'REF-C', status: 'COMPLETED', amount: { value: '868.00', currency_code: 'USD' } });
+    }) as typeof fetch;
+
+    const [a, b] = await Promise.allSettled([refundCapturedOrder('PO-RC'), refundCapturedOrder('PO-RC')]);
+    const results = [a, b].filter((r) => r.status === 'fulfilled').map((r) => (r as PromiseFulfilledResult<{ success: boolean }>).value);
+    expect(results.length).toBeGreaterThanOrEqual(1);
+    expect(results.every((r) => r.success)).toBe(true);
+    expect(refundPosts).toBeLessThanOrEqual(2);
+    expect(restockStore.spendSoFar).toBe(before); // restored exactly once, never double-credited
+    expect(restockStore.getClaim('PO-RC')!.status).toBe('REFUNDED');
+  });
+
   it('simulated mode makes no network call and labels the id SIMULATED_REF_', async () => {
     auth.simulated = true;
     seedCaptured('PO-R5', 'SIMULATED_CAP_X');

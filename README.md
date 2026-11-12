@@ -23,7 +23,7 @@ Judges can test the complete end-to-end loop in **zero-login, 1-click mode**:
    - **Net-Inventory Math at Work:** Notice `OAT-MILK-6PK` (12 on-hand, 12 in-transit) computes `Net Position 24 > ROP 19.5` and orders **0 cases**, preventing **$838.50 in duplicate spending**!
    - `ESPRESSO-5LB` (4 on-hand, ROP 9.0) calculates a deficit and triggers a 14-bag replenishment order.
 3. **Inspect Owner Approval Card:**
-   - **Filtered Peer Median Defense:** Channel3 returns 6 raw offers ($8.99 scoop, $16.50 12oz bag, $36.00 trap, $62.00, $64.50, $68.00). Filtered median ($63.25) catches the suspicious $36.00 clearance trap (**ASK**) and selects the $62.00 valid offer (**ALLOW**).
+   - **Filtered Peer Median Defense:** Channel3 returns 6 raw offers ($8.99 scoop, $16.50 12oz bag, $36.00 trap, $62.00, $64.50, $68.00). Filtered median ($63.25) catches the suspicious $36.00 clearance trap (**ASK**) and selects the $62.00 valid offer. That passes every price and product check, but the $868 order total is above the $150 auto-approval threshold, so the policy gate returns **ASK** and the card shows **`[Owner Approve]`**. Click it before Phase A.
    - Proven dollar savings: **+$17.50 vs peer median** and **+$28.00 vs last purchase**.
 4. **Approve & Checkout with PayPal Sandbox:**
    - Click **`[Phase A: Create PayPal Order]`** — generates a deterministic SHA-256 `PayPal-Request-Id` idempotency key and custom_id contract hash.
@@ -60,6 +60,12 @@ Judges can test the complete end-to-end loop in **zero-login, 1-click mode**:
 | **Local CRC32 + RSA-SHA256 Fallback** | `src/lib/paypal-webhook-verifier.ts` | `tests/paypal-restock.test.ts` (Simulator-compatible verification) |
 | **Non-Short-Circuiting Severity Lattice** | `src/lib/policy.ts:evaluateMandate()` | `tests/policy.test.ts` (Evaluates all 9 rules, BLOCK > ASK > ALLOW) |
 | **Net-Inventory Periodic Review Math** | `src/lib/policy.ts:computeReorder()` | `tests/policy.test.ts` (Prevents $838.50 duplicate spend) |
+| **Receipts Verifiable by Anyone** | `src/lib/receipt-ed25519.ts`, `/api/receipt` (Ed25519 sign/verify, public key) | `tests/blueprint-features.test.ts` (tamper and forged-signature rejection) |
+| **AI Output Must Be Grounded** | `src/lib/grounding.ts` used by `src/lib/ai.ts:rankSourcedOffers()` | `tests/sanitize-grounding.test.ts` (invented id/quote/price/merchant rejected) |
+| **Merchant Text Is Data, Owner PII Is Masked** | `src/lib/sanitize.ts` | `tests/sanitize-grounding.test.ts` (injection strings, emails, phones) |
+| **Daily AI Call Cap (labelled deterministic replay)** | `src/lib/ai-budget.ts` enforced in `src/lib/gemini.ts:callGemini()` | `tests/blueprint-features.test.ts` |
+| **Refund Restores Budget Only After PayPal Read-Back** | `src/lib/paypal.ts:refundCapturedOrder()` | `tests/refund-and-morning-run.test.ts` (mocked PayPal: COMPLETED, PENDING, amount mismatch, 5xx) |
+| **Unattended Morning Run Creates Drafts Only** | `src/app/api/cron/morning-run/route.ts`, `src/lib/restock-cycle.ts` | `tests/refund-and-morning-run.test.ts` (no PayPal claim, idempotent, auth fail-closed) |
 
 ---
 
@@ -72,6 +78,7 @@ Judges can test the complete end-to-end loop in **zero-login, 1-click mode**:
 | **Pre-Capture Verification (`GET /v2/checkout/orders/{id}`)** | Pre-checks `status === "APPROVED"` and currency/amount match before calling capture | Eliminates HTTP 422 `ORDER_NOT_APPROVED` errors in Sandbox. |
 | **Capture (`POST /v2/checkout/orders/{id}/capture`)** | `Prefer: return=representation`, reads `seller_receivable_breakdown.paypal_fee` | Phase B: Settles payment upon café owner authorization. |
 | **Webhooks (`POST /v1/notifications/verify-webhook-signature`)** | Direct `rawBody` JSON string splicing + unsigned 32-bit CRC32 + RSA-SHA256 fallback | Dual verification: supports live sandbox deliveries & Webhook Simulator. |
+| **Refund (`POST /v2/payments/captures/{id}/refund`)** | `PayPal-Request-Id = sha256(poId:refund:captureId)`, then `GET /v2/payments/refunds/{id}` read-back | Budget is restored only when PayPal reports COMPLETED with the exact amount. |
 | **State Reconciliation (`reconcileUnknownOrder`)** | Reconciles `UNKNOWN` status via authoritative GET read-back | Never retries a money-moving write blindly after network timeouts. |
 
 ---
@@ -111,6 +118,12 @@ Full report saved at [`eval/results.md`](eval/results.md).
 1. **Sandbox-Only Hard Guard:** RestockPilot strictly executes against `https://api-m.sandbox.paypal.com` and throws immediate runtime exceptions if pointed to live production.
 2. **Transparent Mode Badge:** When developer credentials are unset or invalid in local testing, the UI clearly displays `SIMULATED MODE` with IDs prefixed `SIMULATED_`. It never blurs simulated records with live Sandbox IDs.
 3. **Supplier Checkout Bridging:** Payments settle into the café owner's PayPal sandbox account; physical merchant fulfillment uses simulated Channel3 checkout triggers.
+4. **Evidence rows are seeded.** The three pinned PayPal IDs on `/evidence` and in `docs/EVIDENCE.md` are placeholder demo data and are labelled as such. Run a real Sandbox checkout from `/demo` and read it back with the verifier to get live IDs.
+5. **Refund and morning run are tested against a mocked PayPal.** The refund code path is exercised with a faked `fetch`; it has not yet been run against the real Sandbox.
+6. **The store is in memory.** State resets on restart, and on serverless or multi-instance hosting the morning run's drafts will not persist. Use a single always-on instance or add a database.
+7. **The benchmark is self-authored.** The 24-case suite uses our own fixtures, so treat it as a regression suite, not a generalisation claim.
+8. **Demo writes are guarded, not private.** `/api/restock` POST goes through `src/lib/api-guard.ts` (operator key, same-origin check, and an explicit opt-in for public sandbox demo writes in production). `REFUND_RESTORE_BUDGET` needs the operator key. This is sandbox-demo hardening, not user accounts.
+9. **Not built (roadmap):** authorize-then-capture with per-line partial capture, retraining the ML models, a persistent double-entry ledger.
 
 ---
 
@@ -126,7 +139,7 @@ cp .env.example .env.local
 
 # 3. Run typecheck & automated tests
 npm run typecheck # runs tsc --noEmit across the full codebase
-npm test          # runs all 124 unit and integration tests across 10 suites
+npm test          # runs all unit and integration tests (162 tests across 15 files at time of writing)
 
 # 4. Run the 24-Case Adversarial Benchmark
 npm run eval
@@ -144,7 +157,7 @@ npm run dev
 | :--- | :--- |
 | [`DEVPOST_SUBMISSION.md`](DEVPOST_SUBMISSION.md) | Official Devpost submission text |
 | [`docs/EVIDENCE.md`](docs/EVIDENCE.md) | Verified benchmark results & PayPal debug trace evidence |
-| [`docs/PROOFLINE_GUIDE.md`](docs/PROOFLINE_GUIDE.md) | ProofLine scope-to-payment module guide |
+| [`docs/PROOFLINE_GUIDE.md`](docs/PROOFLINE_GUIDE.md) | ProofLine scope-to-payment guide (design doc; its source modules are not in this repo snapshot) |
 | [`docs/audits/`](docs/audits/) | Codebase audits, test reports, bug fix log, validation notes |
 | [`docs/process/`](docs/process/) | Engineering worklog, agent handoff spec, deployment runbook |
 | [`docs/blueprints/`](docs/blueprints/) | Hackathon strategy & reference blueprints |

@@ -426,6 +426,8 @@ export async function POST(req: NextRequest) {
       });
 
       const certificate = {
+        // Built from fixed demo inputs without calling PayPal: always a labelled SIMULATION.
+        dataMode: "SIMULATION" as const,
         certificateId: `CERT-${Date.now().toString(36).toUpperCase()}`,
         issuedAt: new Date().toISOString(),
         standard: "FIPS 180-4 SHA-256",
@@ -453,10 +455,11 @@ export async function POST(req: NextRequest) {
         paypalExecutionTrace: {
           orderId,
           intent: "AUTHORIZE",
-          authorizationId: "AUTH-2026-78901",
-          captureId: "CAP-2026-44321",
+          authorizationId: "SIMULATED_AUTH_SAMPLE",
+          captureId: "SIMULATED_CAP_SAMPLE",
           finalCapture: false,
-          paypalDebugId: "DEBUG-CERT-PROOF-9921",
+          // No PayPal call is made for this certificate, so no real PayPal-Debug-Id exists.
+          paypalDebugId: "NOT_ISSUED (simulation)",
           sandboxHost: "api-m.sandbox.paypal.com",
         },
         policyCompliance: {
@@ -470,7 +473,7 @@ export async function POST(req: NextRequest) {
 
       return NextResponse.json({
         testType: "PROOF_OF_SETTLEMENT",
-        title: "Cryptographic FIPS 180-4 Settlement Certificate Generated",
+        title: "SIMULATION: Sample Settlement Certificate (SHA-256 digest is real; PayPal ids are samples)",
         status: "CERTIFICATE_ISSUED",
         certificate,
         details: `Cryptographic proof generated for ${orderId}. SHA-256 Digest: ${digest.slice(0, 16)}...`,

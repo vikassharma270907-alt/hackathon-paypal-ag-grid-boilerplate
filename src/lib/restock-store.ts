@@ -135,6 +135,7 @@ export const SEEDED_INVENTORY: Record<string, InventorySkuInput> = {
     packSize: 1,
     moq: 1,
     lastPaidUnitPrice: 64.0,
+    shelfLifeDays: 21, // roasted beans: peak-freshness window (demo assumption)
   },
   "CUPS-12OZ-500": {
     sku: "CUPS-12OZ-500",
@@ -195,11 +196,11 @@ class RestockPilotStore {
     this.processedWebhookIds.clear();
     this.spendSoFar = 850.0;
 
-    // Seed baseline ledger entries showing previous verified activity
+    // Seed baseline ledger entry (illustrative sample: its ids are placeholders, not a live PayPal run)
     this.ledger.push({
       id: "LEDGER-INIT-001",
       timestamp: "2026-11-10T14:32:00Z",
-      step: "PO Approved & Captured",
+      step: "SAMPLE (seeded): PO Approved & Captured",
       sku: "OAT-MILK-6PK",
       merchant: "OatDistribution Direct",
       qty: 12,
@@ -253,6 +254,27 @@ class RestockPilotStore {
 
   addLedgerEntry(entry: LedgerEntry) {
     this.ledger.unshift(entry);
+  }
+
+  /**
+   * Budget already committed to payments that exist at PayPal (or in simulation) but are not yet
+   * captured: open single-order claims plus open basket authorization holds. Spend is only counted
+   * at capture, so budget checks must add this, or several unpaid orders could together exceed the
+   * monthly budget. Pass the caller's own PO / basket id to exclude it from the reservation.
+   */
+  getReservedSpend(exclude: { poId?: string; basketId?: string } = {}): number {
+    const OPEN_CLAIM = new Set<ClaimStatus>(['ORDER_CREATING', 'AWAITING_BUYER_APPROVAL', 'CAPTURE_PENDING', 'UNKNOWN']);
+    const CLOSED_BASKET = new Set(['SETTLED', 'VOIDED', 'FAILED']);
+    let cents = 0;
+    for (const claim of this.claims.values()) {
+      if (claim.poId === exclude.poId || !OPEN_CLAIM.has(claim.status)) continue;
+      cents += Math.round(claim.amount * 100);
+    }
+    for (const basket of this.baskets.values()) {
+      if (basket.id === exclude.basketId || CLOSED_BASKET.has(basket.status)) continue;
+      cents += basket.totalCents;
+    }
+    return cents / 100;
   }
 
   /**

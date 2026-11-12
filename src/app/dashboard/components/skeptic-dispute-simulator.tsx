@@ -1262,13 +1262,13 @@ export function SkepticDisputeSimulator() {
                 <span className="text-white font-bold">{rfqGoal === 'SERVERS' ? '$3,000.00' : '$5,000.00'} USD</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-zinc-400">Escrow Milestone Requirement:</span>
+                <span className="text-zinc-400">Hold Milestone Requirement:</span>
                 <span className="text-emerald-300 font-bold">Finish-to-Start (30% / 40% / 30%)</span>
               </div>
             </div>
           </div>
 
-          {/* Right Column: Competing Supplier Bids & Winning Escrow Contract */}
+          {/* Right Column: Competing Supplier Bids & Winning Hold Contract */}
           <div className="space-y-4 bg-[#09090b] p-4 rounded-lg border border-zinc-800 flex flex-col justify-between">
             <div className="space-y-3">
               <div className="flex items-center justify-between">
@@ -1347,7 +1347,7 @@ export function SkepticDisputeSimulator() {
                 </div>
               </div>
 
-              {/* Resulting PayPal Sandbox Milestone Escrow */}
+              {/* Resulting PayPal Sandbox Milestone Hold */}
               <div className="bg-[#121215] p-3 rounded-lg border border-blue-500/30 font-mono text-[11px] space-y-1 text-zinc-300">
                 <div className="flex justify-between text-blue-300 font-bold border-b border-zinc-800 pb-1">
                   <span>PayPal Orders v2 Milestone Hold</span>
@@ -1358,7 +1358,7 @@ export function SkepticDisputeSimulator() {
                   <span className="text-white font-bold">ORD-RFQ-SWARM-2026</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-zinc-400">Initial Escrow Hold:</span>
+                  <span className="text-zinc-400">Initial Authorization Hold:</span>
                   <span className="text-emerald-300 font-bold">
                     {rfqGoal === 'SERVERS' ? '$735.00 USD (30%)' : '$1,470.00 USD (30%)'}
                   </span>
@@ -1371,7 +1371,7 @@ export function SkepticDisputeSimulator() {
             </div>
 
             <div className="text-[10px] text-zinc-500 border-t border-zinc-800 pt-2 mt-2">
-              Demonstrates Autonomous Agentic Procurement: Multi-agent price discovery &rarr; MarginPulse discount gating &rarr; PayPal milestone escrow.
+              Demonstrates Autonomous Agentic Procurement: Multi-agent price discovery &rarr; MarginPulse discount gating &rarr; PayPal milestone hold.
             </div>
           </div>
         </div>

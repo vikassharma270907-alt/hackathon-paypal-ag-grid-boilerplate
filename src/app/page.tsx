@@ -36,7 +36,7 @@ const coreWorkspaces = [
   {
     href: '/dashboard',
     title: 'Autonomous Command Center',
-    desc: 'Escrow authorizations, 3-way match engine, AG Grid relational ledger & Bryntum milestone Gantt.',
+    desc: 'Authorization holds, 3-way match engine, AG Grid relational ledger & Bryntum milestone Gantt.',
     icon: ShieldCheck,
     badge: '1st Place Track ($17k)',
     accent: 'border-zinc-700 bg-zinc-900/80 text-zinc-100',
@@ -86,7 +86,7 @@ const coreWorkspaces = [
 const sponsorBadges = [
   { name: 'AG Grid / AG Studio', role: '10-Table Relational Schema & Custom Money Formats' },
   { name: 'APIMatic', role: 'Server SDK Context Plugin & TypeScript SDK 2.5.0' },
-  { name: 'Bryntum', role: 'Finish-to-Start (FS) Escrow Gantt & 30-Day Liquidity Forecast' },
+  { name: 'Bryntum', role: 'Finish-to-Start (FS) Hold Gantt & 30-Day Liquidity Forecast' },
   { name: 'Channel3', role: 'Multi-Merchant B2B Catalog Discovery & Price Norm Z-Scores' },
   { name: 'Render', role: 'Multi-Service Cloud Spec (render.yaml Next.js + FastAPI)' },
 ];
@@ -115,7 +115,7 @@ export default function Home() {
               VeriSettle <span className="text-transparent bg-clip-text bg-gradient-to-r from-zinc-200 via-zinc-400 to-zinc-600">OS</span>
             </h1>
             <p className="text-base sm:text-lg text-zinc-400 max-w-3xl leading-relaxed">
-              Autonomous B2B Escrow, Multimodal 3-Way Invoice Reconciliation, Enterprise Admin Command Center &amp; Langfuse AI Observability Hub.
+              Proof-Gated B2B Settlement, Multimodal 3-Way Invoice Reconciliation, Enterprise Admin Command Center &amp; Langfuse AI Observability Hub.
             </p>
           </div>
 
@@ -147,11 +147,11 @@ export default function Home() {
           </div>
         </section>
 
-        {/* Feature 1: Live Stealth Escrow Radar */}
+        {/* Feature 1: Live Stealth Hold Radar */}
         <section className="space-y-3">
           <div className="flex items-center justify-between">
             <h2 className="text-xs font-bold uppercase tracking-wider text-zinc-400 font-mono">
-              Live Escrow Telemetry &amp; Anomaly Detection Radar
+              Live Hold Telemetry &amp; Anomaly Detection Radar
             </h2>
             <span className="text-[11px] font-mono text-zinc-500">REAL-TIME SANDBOX FREQUENCY</span>
           </div>
@@ -260,7 +260,7 @@ export default function Home() {
 
       {/* Footer */}
       <footer className="mt-12 border-t border-zinc-850 py-6 text-center text-xs font-mono text-zinc-500 bg-[#09090b]">
-        VeriSettle AI · PayPal AI Hackathon 2026 · Autonomous B2B Escrow &amp; Dispute Defense OS
+        VeriSettle AI · PayPal AI Hackathon 2026 · Proof-Gated B2B Settlement &amp; Dispute Defense
       </footer>
     </div>
   );
