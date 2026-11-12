@@ -1,8 +1,11 @@
 'use client';
 
 import Link from 'next/link';
+import { useEffect, useState } from 'react';
 import { usePathname } from 'next/navigation';
 import {
+  LogIn,
+  LogOut,
   ShieldCheck,
   Users,
   Package,
@@ -15,6 +18,18 @@ import {
 
 export function MainNav() {
   const pathname = usePathname();
+  const [user, setUser] = useState<{ name: string; provider: 'google' | 'guest' } | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    fetch('/api/auth/session', { cache: 'no-store' })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => active && setUser(d?.user ?? null))
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, [pathname]);
 
   const navItems = [
     { href: '/', label: 'Home', icon: Home },
@@ -70,6 +85,29 @@ export function MainNav() {
 
         {/* Quick action: Open Live Command Center */}
         <div className="flex items-center gap-2">
+          {user ? (
+            <>
+              <span className="hidden sm:inline text-xs text-zinc-300 max-w-[140px] truncate" title={user.name}>
+                {user.name}
+                {user.provider === 'guest' ? <span className="ml-1 text-[10px] text-amber-400">(demo)</span> : null}
+              </span>
+              <a
+                href="/api/auth/logout"
+                className="flex items-center gap-1.5 text-zinc-400 hover:text-white border border-transparent hover:border-zinc-700 px-2 py-1.5 rounded-md text-xs transition-all"
+              >
+                <LogOut className="w-3 h-3" />
+                <span className="hidden sm:inline">Sign out</span>
+              </a>
+            </>
+          ) : (
+            <Link
+              href="/login"
+              className="flex items-center gap-1.5 text-zinc-200 hover:text-white border border-zinc-700/80 px-3 py-1.5 rounded-md text-xs font-medium transition-all"
+            >
+              <LogIn className="w-3 h-3" />
+              <span>Sign in</span>
+            </Link>
+          )}
           <Link
             href="/dashboard"
             className="flex items-center gap-1.5 bg-zinc-900 hover:bg-zinc-800 text-zinc-200 border border-zinc-700/80 px-3 py-1.5 rounded-md text-xs font-medium transition-all shadow-sm hover:border-zinc-600"

@@ -16,7 +16,7 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { checkOperatorAccess } from '@/lib/api-guard';
 import { FixedWindowRateLimiter, clientKey } from '@/lib/rate-limit';
 
-const SELF_AUTHENTICATED = [/^\/api\/paypal\/webhook\/?$/, /^\/api\/cron\//];
+const SELF_AUTHENTICATED = [/^\/api\/paypal\/webhook\/?$/, /^\/api\/cron\//, /^\/api\/auth\//];
 const QUOTA_SPENDING = [
   /^\/api\/ai\//,
   /^\/api\/gemini\//,

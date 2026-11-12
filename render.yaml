@@ -34,6 +34,15 @@ services:
         generateValue: true
       - key: CRON_SECRET
         generateValue: true
+      # Signs login session cookies (falls back to a key derived from OPERATOR_API_KEY if unset).
+      - key: AUTH_SECRET
+        generateValue: true
+      # Optional Google sign-in. Add the redirect URI
+      # https://<your-domain>/api/auth/google/callback to the Google OAuth client.
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: GOOGLE_CLIENT_SECRET
+        sync: false
       # Operator credential for privileged/mutating API routes (send as "Authorization: Bearer <key>").
       - key: OPERATOR_API_KEY
         generateValue: true
