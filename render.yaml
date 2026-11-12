@@ -34,12 +34,28 @@ services:
         generateValue: true
       - key: CRON_SECRET
         generateValue: true
+      # Signs login session cookies (falls back to a key derived from OPERATOR_API_KEY if unset).
+      - key: AUTH_SECRET
+        generateValue: true
+      # Optional Google sign-in. Add the redirect URI
+      # https://<your-domain>/api/auth/google/callback to the Google OAuth client.
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: GOOGLE_CLIENT_SECRET
+        sync: false
+      # Public URL used for auth redirects, e.g. https://verisettle-web.onrender.com (no trailing slash).
+      - key: APP_BASE_URL
+        sync: false
       # Operator credential for privileged/mutating API routes (send as "Authorization: Bearer <key>").
       - key: OPERATOR_API_KEY
         generateValue: true
       # Sandbox demo only: lets same-origin browser clicks drive the guarded demo routes. Ignored
       # unless PAYPAL_ENVIRONMENT=SANDBOX. Remove this line for any non-demo deployment.
       - key: ALLOW_PUBLIC_DEMO_WRITES
+        value: "true"
+      # Enables the Judge 1-Click Live Test Bar (/api/test-bar). Sandbox demo only; the route is
+      # still guarded by the operator key / same-origin demo policy. Remove for non-demo deployments.
+      - key: ENABLE_TEST_BAR
         value: "true"
       - key: AI_DAILY_CALL_CAP
         value: "60"
