@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getSystemHealth, markServiceAvailable, resyncAllServices } from '@/lib/system-health';
+import { denyUnlessAuthorized } from '@/lib/api-guard';
+import { getExecutionMode } from '@/lib/paypal';
 
 export async function GET() {
   try {
@@ -7,6 +9,9 @@ export async function GET() {
     const allOperational = services.every((s) => s.status === 'OPERATIONAL' || s.status === 'SIMULATED');
     return NextResponse.json({
       overallStatus: allOperational ? 'HEALTHY' : 'DEGRADED',
+      // Derived from configured credentials on the server; the per-service entries below are
+      // static catalog data, not live probes.
+      paypalMode: getExecutionMode(),
       checkedAt: new Date().toISOString(),
       services,
     });
@@ -18,7 +23,12 @@ export async function GET() {
 
 export async function POST(req: Request) {
   try {
-    const body = await req.json();
+    const denied = denyUnlessAuthorized(req, { strict: true });
+    if (denied) return denied;
+    const body = await req.json().catch(() => null);
+    if (!body || typeof body !== 'object') {
+      return NextResponse.json({ error: 'Body must be a JSON object.' }, { status: 400 });
+    }
     const action = body.action;
 
     if (action === 'mark-available') {
@@ -34,7 +44,7 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ error: 'Unknown action' }, { status: 400 });
   } catch (error: unknown) {
-    const err = error as Error;
-    return NextResponse.json({ error: err.message || 'Action failed' }, { status: 500 });
+    console.error('[health] action failed:', error instanceof Error ? error.name : 'unknown');
+    return NextResponse.json({ error: 'Action failed' }, { status: 500 });
   }
 }

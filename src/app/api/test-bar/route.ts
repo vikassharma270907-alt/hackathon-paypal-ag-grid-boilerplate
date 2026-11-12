@@ -5,11 +5,42 @@ import { evaluate3WayMatch } from "@/lib/ml-fallback";
 import { evaluatePolicyFirewall, computeApprovalDigest, canonicalJsonStringify } from "@/lib/policy-firewall";
 import { searchChannel3Catalog, getCategoryPriceNorm, evaluateChannel3PricingAnomaly } from "@/lib/channel3";
 import { extractInvoiceWithGemini, isGeminiEnabled } from "@/lib/gemini";
+import { denyUnlessAuthorized, rejectOversizedBody } from "@/lib/api-guard";
+
+const KNOWN_TEST_TYPES = new Set([
+  "ESCROW_AUTH",
+  "TAMPERED_INVOICE",
+  "CHAOS_DECLINE",
+  "CHANNEL3_PRICE_NORM",
+  "GEMINI_3WAY_EXTRACT",
+  "PROOF_OF_SETTLEMENT",
+  "RESET_STATE",
+  "PROMPT_INJECTION_ATTACK",
+  "SMART_RFQ_SWARM",
+]);
 
 export async function POST(req: NextRequest) {
   try {
-    const body = await req.json();
-    const { testType } = body;
+    // Debug/judge endpoint: off in production unless explicitly enabled, and always guarded.
+    if (process.env.NODE_ENV === "production" && process.env.ENABLE_TEST_BAR !== "true") {
+      return NextResponse.json({ error: "Not found" }, { status: 404 });
+    }
+    const denied = denyUnlessAuthorized(req);
+    if (denied) return denied;
+    const tooLarge = rejectOversizedBody(req, 8_192);
+    if (tooLarge) return tooLarge;
+
+    const body = await req.json().catch(() => null);
+    const testType = body && typeof body === "object" ? body.testType : undefined;
+    if (typeof testType !== "string" || !KNOWN_TEST_TYPES.has(testType)) {
+      return NextResponse.json({ error: "Unknown testType" }, { status: 400 });
+    }
+    if (body.proposedPrice !== undefined && !(Number.isFinite(Number(body.proposedPrice)) && Number(body.proposedPrice) > 0)) {
+      return NextResponse.json({ error: "proposedPrice must be a positive number" }, { status: 400 });
+    }
+    if (body.query !== undefined && !(typeof body.query === "string" && body.query.length <= 200)) {
+      return NextResponse.json({ error: "query must be a string of at most 200 characters" }, { status: 400 });
+    }
 
     const accessToken = await getPayPalAccessToken();
 
@@ -446,10 +477,10 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    return NextResponse.json({ error: `Unknown testType: ${testType}` }, { status: 400 });
+    return NextResponse.json({ error: "Unknown testType" }, { status: 400 });
   } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : String(err);
-    return NextResponse.json({ error: message }, { status: 500 });
+    console.error("[test-bar] failed:", err instanceof Error ? err.name : "unknown");
+    return NextResponse.json({ error: "Test execution failed" }, { status: 500 });
   }
 }
 

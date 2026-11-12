@@ -12,9 +12,9 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: {
     template: "%s · VeriSettle AI",
-    default: "VeriSettle AI · Autonomous B2B Escrow & Settlement OS",
+    default: "VeriSettle AI · Proof-Gated B2B Settlement",
   },
-  description: "Autonomous B2B Escrow, Multimodal 3-Way Invoice Reconciliation & Dispute Defense OS for PayPal AI Hackathon 2026",
+  description: "Proof-gated B2B payment authorization holds, multimodal 3-way invoice reconciliation and dispute defense for PayPal AI Hackathon 2026. Sandbox demo; not a regulated escrow service.",
 };
 
 export default function RootLayout({

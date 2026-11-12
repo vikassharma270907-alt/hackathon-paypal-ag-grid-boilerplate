@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { getPayPalAccessToken } from "@/lib/paypal-auth";
 import { evaluatePolicyFirewall } from "@/lib/policy-firewall";
 import { evaluateDisputeTriage } from "@/lib/ml-fallback";
+import { restockStore } from "@/lib/restock-store";
+
+const REPLAY_WINDOW_MS = 5 * 60 * 1000;
 
 const PAYPAL_BASE_URL = process.env.PAYPAL_BASE_URL || "https://api-m.sandbox.paypal.com";
 
@@ -17,7 +20,7 @@ export interface WebhookVerificationResult {
  */
 async function verifyPayPalWebhookSignature(
   req: NextRequest,
-  event: Record<string, unknown>
+  rawBody: string
 ): Promise<WebhookVerificationResult> {
   const webhookId = process.env.PAYPAL_WEBHOOK_ID?.trim();
   const authAlgo = req.headers.get("paypal-auth-algo");
@@ -26,12 +29,20 @@ async function verifyPayPalWebhookSignature(
   const transmissionSig = req.headers.get("paypal-transmission-sig");
   const transmissionTime = req.headers.get("paypal-transmission-time");
 
-  // Check if webhook is configured
+  // Fail closed: an unconfigured webhook id must never mean "verified". Unsigned events are only
+  // accepted outside production and only with an explicit opt-in flag.
   if (!webhookId || webhookId.startsWith("your_")) {
+    if (process.env.ALLOW_UNSIGNED_WEBHOOKS === "true" && process.env.NODE_ENV !== "production") {
+      return {
+        verified: true,
+        verificationStatus: "SANDBOX_SIMULATED",
+        details: "SIMULATION: PAYPAL_WEBHOOK_ID is not configured; unsigned event accepted by explicit dev opt-in.",
+      };
+    }
     return {
-      verified: true,
-      verificationStatus: "SANDBOX_SIMULATED",
-      details: "PAYPAL_WEBHOOK_ID is not configured in .env.local; accepted in sandbox testing mode.",
+      verified: false,
+      verificationStatus: "UNVERIFIED",
+      details: "PAYPAL_WEBHOOK_ID is not configured; webhook events cannot be verified.",
     };
   }
 
@@ -44,17 +55,25 @@ async function verifyPayPalWebhookSignature(
     };
   }
 
+  // Replay window: reject stale or future-dated transmissions.
+  const sentAt = Date.parse(transmissionTime);
+  if (!Number.isFinite(sentAt) || Math.abs(Date.now() - sentAt) > REPLAY_WINDOW_MS) {
+    return {
+      verified: false,
+      verificationStatus: "FAILURE",
+      details: "paypal-transmission-time is missing, invalid, or outside the 5 minute replay window.",
+    };
+  }
+
   try {
     const token = await getPayPalAccessToken();
-    const verifyPayload = {
-      auth_algo: authAlgo,
-      cert_url: certUrl,
-      transmission_id: transmissionId,
-      transmission_sig: transmissionSig,
-      transmission_time: transmissionTime,
-      webhook_id: webhookId,
-      webhook_event: event,
-    };
+    // The raw body is embedded verbatim: PayPal verifies the exact bytes that were signed, so a
+    // parse/re-serialize round trip can produce false FAILURE results.
+    const verifyBody =
+      `{"auth_algo":${JSON.stringify(authAlgo)},"cert_url":${JSON.stringify(certUrl)},` +
+      `"transmission_id":${JSON.stringify(transmissionId)},"transmission_sig":${JSON.stringify(transmissionSig)},` +
+      `"transmission_time":${JSON.stringify(transmissionTime)},"webhook_id":${JSON.stringify(webhookId)},` +
+      `"webhook_event":${rawBody}}`;
 
     const res = await fetch(`${PAYPAL_BASE_URL}/v1/notifications/verify-webhook-signature`, {
       method: "POST",
@@ -62,7 +81,7 @@ async function verifyPayPalWebhookSignature(
         Authorization: `Bearer ${token}`,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify(verifyPayload),
+      body: verifyBody,
     });
 
     if (res.ok) {
@@ -133,11 +152,31 @@ export async function POST(req: NextRequest) {
     }
 
     const eventType = (event.event_type as string) || "UNKNOWN_EVENT";
-    const eventId = (event.id as string) || `EVT-${Date.now()}`;
+    const eventId = typeof event.id === "string" ? event.id : "";
     const resource = (event.resource as Record<string, unknown>) || {};
 
-    // 1. Verify webhook signature
-    const verification = await verifyPayPalWebhookSignature(req, event);
+    // 1. Verify the signature BEFORE doing anything else with the event.
+    const verification = await verifyPayPalWebhookSignature(req, rawBody);
+    if (!verification.verified) {
+      return NextResponse.json(
+        {
+          received: false,
+          verified: false,
+          verificationStatus: verification.verificationStatus,
+          verificationDetails: verification.details,
+        },
+        { status: 401 }
+      );
+    }
+    if (!eventId) {
+      return NextResponse.json({ error: "Webhook event is missing an id" }, { status: 400 });
+    }
+
+    // 1b. Deduplicate: PayPal retries deliveries, so processing must be idempotent.
+    if (restockStore.processedWebhookIds.has(eventId)) {
+      return NextResponse.json({ received: true, duplicate: true, eventId, eventType, verified: true });
+    }
+    restockStore.processedWebhookIds.add(eventId);
 
     // 2. Policy-gated event dispatching
     let policyAction: Record<string, unknown> | null = null;
@@ -196,7 +235,7 @@ export async function POST(req: NextRequest) {
       timestamp: new Date().toISOString(),
     });
   } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : String(err);
-    return NextResponse.json({ error: message }, { status: 500 });
+    console.error("[PAYPAL WEBHOOK] processing error:", err instanceof Error ? err.name : "unknown");
+    return NextResponse.json({ error: "Webhook processing failed" }, { status: 500 });
   }
 }

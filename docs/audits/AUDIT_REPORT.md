@@ -185,3 +185,39 @@ Baseline (before edits): `tsc --noEmit` FAILED (1 error), `vitest run tests` FAI
 After edits: tsc 0 errors, eslint clean, vitest 15 files / 162 tests passed, `next build` succeeded.
 
 NOT RUN: browser E2E and accessibility checks (no suites in the repo), PayPal Sandbox lifecycle (no credentials in this session), CI, GitHub push/PR (no git remote is configured).
+
+## 2026-11-12 Pass 2: API access control and payment-path hardening
+
+Three read-only review passes (payment/webhook, AI/agent/CRUD routes, frontend/CI) found the following. All fixes are verified by tests in `tests/api-guard.test.ts` and `tests/security-hardening.test.ts` and by a production-runtime smoke test.
+
+| ID | Sev | Finding | Fix | Status |
+|---|---|---|---|---|
+| SEC-201 | P0 | Money-moving routes (`/api/restock`, `/api/paypal/escrow|dispute|invoice`) had no authentication. | `src/lib/api-guard.ts`: operator key, or explicit sandbox-only same-origin demo opt-in. Fails closed in production. | VERIFIED |
+| SEC-202 | P0 | Escrow route trusted client-supplied amounts, risk score, and approval inputs. | Money and risk validation, policy block on any non-allowed result, capture capped by PayPal's own authorization amount. | VERIFIED (cap needs a live sandbox run) |
+| SEC-203 | P0 | Dispute route sent client-chosen strategy and offer amounts to PayPal. | Strategy allowlist, offer must be positive and not exceed the disputed amount. | VERIFIED |
+| SEC-204 | P1 | Webhook ignored its verification result and returned `verified:true` when `PAYPAL_WEBHOOK_ID` was unset; no replay or dedup. | Fails closed (401), 5 minute replay window, raw-body verification, event-id dedup. Unsigned events only with `ALLOW_UNSIGNED_WEBHOOKS=true` outside production. | VERIFIED |
+| SEC-205 | P1 | Capture trusted a client `SIMULATED_` order-id prefix, had no state or ownership check, and double counted spend on replay. | Order id bound to the claim, status guard, idempotent replay. | VERIFIED |
+| SEC-206 | P1 | `REFUND_RESTORE_BUDGET` freed budget without refunding money. | Operator-only (strict tier). | VERIFIED |
+| SEC-207 | P1 | `/api/test-bar` (live sandbox calls, leaks error text) public on every deploy. | 404 in production unless `ENABLE_TEST_BAR=true`; guarded; generic errors. | VERIFIED |
+| SEC-208 | P1 | `/api/ai/responses` forwarded the full body to OpenAI with the owner's key. | Guard, 64 KB cap, field allowlist, function tools only, `store:false`. | VERIFIED |
+| SEC-209 | P1 | Users/products CRUD allowed mass assignment (role, id, riskScore). | `src/lib/entity-input.ts` allowlists; ADMIN role and DELETE need operator key. | VERIFIED |
+| SEC-210 | P2 | `/api/agent` accepted `callerRole: "admin"` from the body. | Admin needs operator credentials; unknown roles downgraded. | VERIFIED |
+| SEC-211 | P2 | Credential rejection or network failure silently produced fake PayPal tokens and `SIMULATED_*` IDs in production. | Throws in production; simulation fallback remains outside production. | VERIFIED by code review, not by a live run |
+| SEC-212 | P2 | No security headers. | `frame-ancestors`, nosniff, referrer, permissions, HSTS. Full script CSP not added (needs nonces). | VERIFIED (headers observed) |
+| UI-201 | P1 | Devtools showed hard-coded SANDBOX ACTIVE / ONLINE / CONNECTED; test bar fell back to a fabricated certificate. | Real `paypalMode` from the server; unprobed services say NOT PROBED; sample certificate removed. | VERIFIED |
+| UI-202 | P2 | Hydration mismatch on `/availability`; demo handlers swallowed errors. | Deterministic initial text; shared error-surfacing helper. | VERIFIED (build + page 200) |
+| UI-203 | P2 | "Escrow" used as a product claim in page metadata. | Reworded to "proof-gated settlement"; not a regulated escrow. | PARTIAL: many in-page strings remain (see below) |
+| OPS-201 | P2 | CI ran only Python steps; the Next.js app was never typechecked, linted, tested or built. | Node 22 job: `npm ci`, typecheck, lint, test, build, audit (informational). Read-only token permissions. | VERIFIED locally; workflow not yet run on GitHub |
+
+Verification: `tsc` 0 errors, `eslint` clean, `vitest` 19 files / 194 tests passed, `next build` succeeded. Production smoke test against `next start`: unauthenticated writes 401, operator key 200, wrong key 401, test-bar 404, unverified webhook 401, security headers present, nine key pages 200.
+
+### Deferred or open
+- **UI wording:** "escrow" still appears in about 20 in-page strings (dashboard, users, walkthrough, skeptic simulator). PayPal `AUTHORIZE` is a hold, not escrow. Needs a copy review.
+- **Hard-coded sample data:** `stealth-pipeline.tsx`, `stealth-radar.tsx`, `cosmos-audit-drawer.tsx` and `settlement-proof-modal.tsx` render fixed PayPal-looking IDs. They need an explicit "illustrative sample" label.
+- **Unauthenticated reads:** `GET /api/users`, `/api/products`, `/api/restock`, `/api/ai/traces`, `/api/mcp` expose synthetic demo data (and claim error details). Fine for synthetic data, not for real data.
+- **Other unguarded AI routes:** `/api/gemini/*`, `/api/ai/chat|sentiment|voice|image|rps`, `/api/ml`, `/api/channel3` have no auth, quota, or length limits.
+- **In-memory money state:** claims, spend, approvals and processed webhook IDs are lost on restart and not shared across instances.
+- **Budget race:** budget is checked at order creation but spend is counted at capture, so concurrent unpaid orders can exceed the monthly budget.
+- **Dependencies:** 11 production advisories (6 high) remain; the `@paypal/agent-toolkit` chain and `zod` 3.x need major-version decisions.
+- **Receipts:** `/api/receipt` signs claim IDs without marking `SIMULATED_*` identifiers.
+- **Not run:** browser E2E, automated accessibility scan, PayPal Sandbox lifecycle (no credentials), GitHub Actions.

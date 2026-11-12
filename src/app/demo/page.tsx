@@ -164,14 +164,24 @@ export default function RestockPilotDemoPage() {
   };
 
   // One-click actions
+  // Shared helper for simple restock actions: surfaces HTTP and network failures to the user
+  // instead of swallowing them.
+  const runRestockAction = async (body: Record<string, unknown>, failureLabel: string) => {
+    try {
+      const res = await postJson('/api/restock', body);
+      if (!res.ok) {
+        const err = await res.json().catch(() => null);
+        alert(err?.error || `${failureLabel} (HTTP ${res.status})`);
+      }
+    } catch (e: unknown) {
+      alert(e instanceof Error ? `${failureLabel}: ${e.message}` : failureLabel);
+    }
+  };
+
   const handleRunCycle = async () => {
     setLoading(true);
     try {
-      await fetch('/api/restock', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'RUN_CYCLE' }),
-      });
+      await runRestockAction({ action: 'RUN_CYCLE' }, 'Run cycle failed');
       await fetchData();
     } finally {
       setLoading(false);
@@ -181,11 +191,7 @@ export default function RestockPilotDemoPage() {
   const handleResetScenario = async () => {
     setLoading(true);
     try {
-      await fetch('/api/restock', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'RESET' }),
-      });
+      await runRestockAction({ action: 'RESET' }, 'Reset failed');
       await fetchData();
     } finally {
       setLoading(false);
@@ -195,11 +201,7 @@ export default function RestockPilotDemoPage() {
   const handleApprovePo = async (poId: string) => {
     setLoading(true);
     try {
-      await fetch('/api/restock', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'APPROVE_PO', poId }),
-      });
+      await runRestockAction({ action: 'APPROVE_PO', poId }, 'Approval failed');
       await fetchData();
     } finally {
       setLoading(false);
@@ -245,11 +247,7 @@ export default function RestockPilotDemoPage() {
   const handleReconcile = async (poId: string) => {
     setLoading(true);
     try {
-      await fetch('/api/restock', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'RECONCILE', poId }),
-      });
+      await runRestockAction({ action: 'RECONCILE', poId }, 'Reconcile failed');
       await fetchData();
     } finally {
       setLoading(false);

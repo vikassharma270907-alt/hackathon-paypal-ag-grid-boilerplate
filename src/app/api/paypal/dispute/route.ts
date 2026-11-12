@@ -2,10 +2,43 @@ import { NextRequest, NextResponse } from "next/server";
 import { getPayPalAccessToken } from "@/lib/paypal-auth";
 import { executeDisputeResolution } from "@/lib/paypal-escrow-disputes";
 import { evaluateDisputeTriage } from "@/lib/ml-fallback";
+import { denyUnlessAuthorized, rejectOversizedBody } from "@/lib/api-guard";
+import { isValidMoney } from "@/lib/validation";
+
+const STRATEGIES = ["MAKE_OFFER", "ACCEPT_CLAIM", "PROVIDE_EVIDENCE"] as const;
 
 export async function POST(req: NextRequest) {
   try {
-    const body = await req.json();
+    const denied = denyUnlessAuthorized(req);
+    if (denied) return denied;
+    const tooLarge = rejectOversizedBody(req, 16_384);
+    if (tooLarge) return tooLarge;
+
+    const body = await req.json().catch(() => null);
+    if (!body || typeof body !== "object") {
+      return NextResponse.json({ error: "Body must be a JSON object." }, { status: 400 });
+    }
+    if (body.strategyOverride !== undefined && !STRATEGIES.includes(body.strategyOverride)) {
+      return NextResponse.json({ error: `strategyOverride must be one of ${STRATEGIES.join(", ")}.` }, { status: 400 });
+    }
+    if (body.disputedAmount !== undefined && !isValidMoney(body.disputedAmount)) {
+      return NextResponse.json({ error: "disputedAmount must be a positive amount with at most 2 decimals." }, { status: 400 });
+    }
+    if (body.offerAmount !== undefined) {
+      const disputed = Number(body.disputedAmount ?? 1850);
+      if (!isValidMoney(body.offerAmount) || Number(body.offerAmount) > disputed) {
+        return NextResponse.json({ error: "offerAmount must be positive and no greater than the disputed amount." }, { status: 400 });
+      }
+    }
+    for (const field of ["baseWinProb"] as const) {
+      const v = body[field];
+      if (v !== undefined && (!Number.isFinite(Number(v)) || Number(v) < 0 || Number(v) > 1)) {
+        return NextResponse.json({ error: `${field} must be between 0 and 1.` }, { status: 400 });
+      }
+    }
+    if (body.llmWinProbAdjustment !== undefined && !Number.isFinite(Number(body.llmWinProbAdjustment))) {
+      return NextResponse.json({ error: "llmWinProbAdjustment must be a number." }, { status: 400 });
+    }
     const {
       action = "TRIAGE_AND_EXECUTE",
       disputeId = "PP-D-94821",

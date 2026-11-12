@@ -17,7 +17,6 @@ import {
 import {
   SettlementProofModal,
   type SettlementCertificateData,
-  DEFAULT_CERTIFICATE,
 } from './settlement-proof-modal';
 
 export interface TestActionResult {
@@ -52,13 +51,28 @@ export function JudgeTestBar({ onTestExecuted }: JudgeTestBarProps) {
         body: JSON.stringify({ testType: 'PROOF_OF_SETTLEMENT' }),
       });
       const data = await res.json();
-      if (data.certificate) {
-        setCurrentCertificate(data.certificate);
+      if (!res.ok || !data.certificate) {
+        // Never substitute a sample certificate: it would look like a real PayPal settlement proof.
+        setLastResult({
+          testType: 'PROOF_OF_SETTLEMENT',
+          title: 'Proof of settlement unavailable',
+          status: 'ERROR',
+          details: data?.error || `Request failed (HTTP ${res.status}). No certificate was issued.`,
+          latencyMs: 0,
+        });
+        return;
       }
-    } catch {
-      setCurrentCertificate(DEFAULT_CERTIFICATE);
+      setCurrentCertificate(data.certificate);
+      setShowProofModal(true);
+    } catch (err: unknown) {
+      setLastResult({
+        testType: 'PROOF_OF_SETTLEMENT',
+        title: 'Proof of settlement unavailable',
+        status: 'ERROR',
+        details: err instanceof Error ? err.message : 'Failed to contact /api/test-bar',
+        latencyMs: 0,
+      });
     }
-    setShowProofModal(true);
   };
 
   const runTest = async (testType: string) => {
@@ -70,8 +84,17 @@ export function JudgeTestBar({ onTestExecuted }: JudgeTestBarProps) {
         body: JSON.stringify({ testType }),
       });
       const data = await res.json();
-      setLastResult(data);
-      if (onTestExecuted) onTestExecuted(data);
+      const result: TestActionResult = res.ok
+        ? data
+        : {
+            testType,
+            title: 'Test Execution Error',
+            status: 'ERROR',
+            details: data?.error || `Request failed (HTTP ${res.status})`,
+            latencyMs: 0,
+          };
+      setLastResult(result);
+      if (onTestExecuted) onTestExecuted(result);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
       const fallbackResult: TestActionResult = {

@@ -2,10 +2,37 @@ import { NextRequest, NextResponse } from "next/server";
 import { getPayPalAccessToken, generateRequestId } from "@/lib/paypal-auth";
 import { createB2BInvoice } from "@/lib/paypal-escrow-disputes";
 import { evaluateEarlyDiscountSkepticGate } from "@/lib/ml-fallback";
+import { denyUnlessAuthorized, rejectOversizedBody } from "@/lib/api-guard";
+import { isValidMoney, isBoundedString } from "@/lib/validation";
+
+const EMAIL_RE = /^[^\s@]{1,64}@[^\s@]{1,255}\.[^\s@]{2,}$/;
 
 export async function POST(req: NextRequest) {
   try {
-    const body = await req.json();
+    const denied = denyUnlessAuthorized(req);
+    if (denied) return denied;
+    const tooLarge = rejectOversizedBody(req, 16_384);
+    if (tooLarge) return tooLarge;
+
+    const body = await req.json().catch(() => null);
+    if (!body || typeof body !== "object") {
+      return NextResponse.json({ error: "Body must be a JSON object." }, { status: 400 });
+    }
+    if (body.invoiceValue !== undefined && !isValidMoney(body.invoiceValue)) {
+      return NextResponse.json({ error: "invoiceValue must be a positive amount with at most 2 decimals." }, { status: 400 });
+    }
+    for (const field of ["pOnTime", "annualCapitalCost"] as const) {
+      const v = body[field];
+      if (v !== undefined && (!Number.isFinite(Number(v)) || Number(v) < 0 || Number(v) > 1)) {
+        return NextResponse.json({ error: `${field} must be between 0 and 1.` }, { status: 400 });
+      }
+    }
+    if (body.recipientEmail !== undefined && !(typeof body.recipientEmail === "string" && EMAIL_RE.test(body.recipientEmail))) {
+      return NextResponse.json({ error: "recipientEmail is not a valid email address." }, { status: 400 });
+    }
+    if (body.itemName !== undefined && !isBoundedString(body.itemName, 120)) {
+      return NextResponse.json({ error: "itemName must be a string of at most 120 characters." }, { status: 400 });
+    }
     const {
       action = "EVALUATE_AND_CREATE",
       invoiceValue = 2500.0,
@@ -35,10 +62,11 @@ export async function POST(req: NextRequest) {
     const accessToken = await getPayPalAccessToken();
     const requestId = generateRequestId("inv");
 
-    const effectiveTotal =
-      skepticResult.decision === "PROPOSE_DISCOUNT"
-        ? (invoiceValue * 0.98).toFixed(2)
-        : Number(invoiceValue).toFixed(2);
+    // Integer cents avoid binary floating point drift on money.
+    const totalCents = Math.round(Number(invoiceValue) * 100);
+    const effectiveCents =
+      skepticResult.decision === "PROPOSE_DISCOUNT" ? Math.round((totalCents * 98) / 100) : totalCents;
+    const effectiveTotal = (effectiveCents / 100).toFixed(2);
 
     const invoicePayload = {
       detail: {
