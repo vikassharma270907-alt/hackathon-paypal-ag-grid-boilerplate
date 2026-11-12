@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import Link from 'next/link';
 import {
   ShieldCheck,
@@ -77,17 +77,29 @@ export default function EvidencePage() {
     error?: string;
   } | null>(null);
 
+  // Only the most recent Verify click may update the panel. Without this, a slow response for an
+  // earlier row could overwrite the result the judge is now looking at.
+  const latestRequest = useRef(0);
+
   const handleVerify = async (orderId: string) => {
+    const requestNo = ++latestRequest.current;
+    const isLatest = () => requestNo === latestRequest.current;
     setVerificationResult({ orderId, loading: true });
     try {
       const res = await fetch(`/api/restock/verify?id=${encodeURIComponent(orderId)}`);
-      const json = await res.json();
-      if (res.ok) {
+      const json = await res.json().catch(() => null);
+      if (!isLatest()) return;
+      if (res.ok && json) {
         setVerificationResult({ orderId, loading: false, data: json.details });
       } else {
-        setVerificationResult({ orderId, loading: false, error: json.error || 'Verification query failed' });
+        setVerificationResult({
+          orderId,
+          loading: false,
+          error: json?.error || `Verification query failed (HTTP ${res.status})`,
+        });
       }
     } catch (e: unknown) {
+      if (!isLatest()) return;
       setVerificationResult({
         orderId,
         loading: false,
@@ -192,6 +204,7 @@ export default function EvidencePage() {
                     <td className="py-3 px-3 text-right">
                       <button
                         onClick={() => handleVerify(trace.orderId)}
+                      disabled={verificationResult?.loading === true}
                         className="px-2.5 py-1 rounded bg-blue-600 hover:bg-blue-500 text-white font-sans text-xs font-semibold shadow transition-colors"
                       >
                         Verify with PayPal GET
@@ -206,20 +219,21 @@ export default function EvidencePage() {
           {/* Interactive Custom Order ID Tester */}
           <div className="mt-4 p-4 rounded-xl border border-zinc-800 bg-zinc-900/40 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
             <div className="flex-1 w-full sm:w-auto">
-              <label className="text-xs font-semibold text-zinc-300 block mb-1">
+              <label htmlFor="custom-order-id" className="text-xs font-semibold text-zinc-300 block mb-1">
                 Verify Any Custom PayPal Sandbox Order ID:
               </label>
               <div className="flex gap-2">
                 <input
+                  id="custom-order-id"
                   type="text"
-                  placeholder="Paste PayPal Sandbox Order ID (e.g. 5O190127TN364715T)..."
+                  placeholder="Paste a PayPal Sandbox Order ID from your own /demo run..."
                   value={customOrderId}
                   onChange={(e) => setCustomOrderId(e.target.value)}
                   className="w-full max-w-md px-3 py-1.5 text-xs bg-zinc-950 border border-zinc-700 rounded-lg text-white font-mono placeholder-zinc-500 focus:outline-none focus:border-blue-500"
                 />
                 <button
                   onClick={() => customOrderId && handleVerify(customOrderId)}
-                  disabled={!customOrderId}
+                  disabled={!customOrderId || verificationResult?.loading === true}
                   className="px-4 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white text-xs font-semibold transition-colors"
                 >
                   Verify Live
@@ -238,7 +252,10 @@ export default function EvidencePage() {
             <div className="flex items-center justify-between">
               <h3 className="font-bold text-white text-xs flex items-center gap-2">
                 <CheckCircle2 className="size-4 text-emerald-400" />
-                Live PayPal Sandbox Read-Back for: <span className="font-mono text-blue-300">{verificationResult.orderId}</span>
+                {verificationResult.data?.mode === 'SIMULATION'
+                  ? 'SIMULATION: local record only (no PayPal call) for: '
+                  : 'PayPal Sandbox Read-Back for: '}
+                <span className="font-mono text-blue-300">{verificationResult.orderId}</span>
               </h3>
               <button
                 onClick={() => setVerificationResult(null)}

@@ -12,6 +12,13 @@ export async function GET() {
       // Derived from configured credentials on the server; the per-service entries below are
       // static catalog data, not live probes.
       paypalMode: getExecutionMode(),
+      // Operators must know this before scaling: the payment lock only protects one process.
+      stateModel: {
+        store: 'in-memory',
+        supportedInstances: 1,
+        note:
+          'Restock state, payment claims and the per-order payment lock live in this process. Run exactly one instance; state resets on restart.',
+      },
       checkedAt: new Date().toISOString(),
       services,
     });

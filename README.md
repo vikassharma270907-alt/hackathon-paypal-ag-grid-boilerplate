@@ -155,10 +155,22 @@ npm run dev
 
 ---
 
+## 🧪 Verify a Running Server
+
+```bash
+npm run smoke                 # 20-check judge-journey smoke test (SIMULATION, or SANDBOX up to approval)
+npm run sandbox:verify        # one real PayPal Sandbox checkout, capture and refund, recorded as evidence
+```
+
+Full guide with every environment variable: [`docs/RUNNING_LOCALLY.md`](docs/RUNNING_LOCALLY.md).
+
+---
+
 ## 📚 Documentation Map
 
 | Location | Contents |
 | :--- | :--- |
+| [`docs/RUNNING_LOCALLY.md`](docs/RUNNING_LOCALLY.md) | Install, environment variables, smoke test, live Sandbox verification, deployment constraint |
 | [`DEVPOST_SUBMISSION.md`](DEVPOST_SUBMISSION.md) | Official Devpost submission text |
 | [`docs/EVIDENCE.md`](docs/EVIDENCE.md) | Verified benchmark results & PayPal debug trace evidence |
 | [`docs/PROOFLINE_GUIDE.md`](docs/PROOFLINE_GUIDE.md) | ProofLine scope-to-payment guide (design doc; its source modules are not in this repo snapshot) |

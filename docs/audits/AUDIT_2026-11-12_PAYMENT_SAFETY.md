@@ -1,6 +1,6 @@
 # Payment-Safety Audit, 2026-11-12
 
-Branch `fix/payment-safety-audit-2026-11-12`, stacked on `feat/hardening-and-demo-updates` (`d4c929f`, which sits on `main` `8ff3e6a`).
+Branch `fix/payment-safety-audit-2026-11-12`. It was first stacked on `feat/hardening-and-demo-updates`; after that merged (PR #8), `origin/main` was merged in and the PR now targets `main`.
 Every money path stays **PayPal Sandbox only**. No live PayPal call was made during this audit. Payment flows were exercised in SIMULATION mode, and against a mocked `fetch` where a real PayPal response shape was needed.
 
 ## Method
@@ -36,17 +36,23 @@ Note on AUD-001: the first AUD-001 test is behavioural, because the seeded morni
 
 Note on AUD-011: the bad-id test passes "before" only because `git stash -- src` does not stash the new, untracked route file.
 
-## Deferred and handed off (not fixed here)
+## Follow-up pass (same day)
 
-- **`/demo` basket panel** (`src/app/demo/basket-panel.tsx`, owned by the parallel agent's branch).
-  - `call()` throws on a non-JSON error and clears the selection even when the hold was refused.
-  - Fix: `res.json().catch(() => ({}))` and clear the selection only on success.
-- **`/evidence` verify** can show a stale result if two rows are verified quickly. Low impact (P3).
+| ID | Sev | Item | Resolution | Status |
+|---|---|---|---|---|
+| AUD-018 | P2 | `/demo` basket panel `call()` crashed on non-JSON errors and cleared the selection even when the hold was refused. | Safe JSON parse plus catch; returns success; selection cleared only when the server accepted the hold. | FIXED (manual-check pending) |
+| AUD-019 | P3 | `/evidence` Verify could show an earlier row's result. | Request token (latest click wins), safe JSON, buttons disabled while a check runs, SIMULATION-aware heading, labelled input. | FIXED (manual-check pending) |
+| AUD-020 | P2 | Single-instance limit was documentation only. | `render.yaml` pins `numInstances: 1`; `/api/health` reports `stateModel.supportedInstances: 1`. A database lock is still required before scaling out. | MITIGATED |
+| AUD-021 | P1 | Live Sandbox run was unverified, with no repeatable way to produce real evidence. | `npm run sandbox:verify`: one buyer-approved checkout, capture, read-back and refund. Appends real ids to `docs/evidence/live-sandbox-runs.md` and refuses simulated or malformed ids (`tests/live-evidence.test.ts`). | TOOLING DONE; **run pending your Sandbox keys** |
+| AUD-022 | P2 | The judge journey had no automated runtime check. | `npm run smoke`: 20 HTTP checks against a running server, exit 1 on failure. | VERIFIED (20/20 on `next start`) |
+| AUD-023 | P3 | `smoke` and `sandbox:verify` returned crash code `-1073740791` instead of `1` on Windows. | No `process.exit()` while fetch sockets close; `process.exitCode` instead. | VERIFIED |
+
+## Still open
+
+- **Database-backed state.** Required before more than one instance. Tracked by AUD-020.
+- **Live Sandbox evidence.** No PayPal credentials exist in this environment. Run `npm run sandbox:verify` (see `docs/RUNNING_LOCALLY.md`, section 6).
 - **Moderate advisories.** 7 remaining, all one `minimatch` ReDoS inside the ESLint toolchain. `npm ls --omit=dev` is empty, so it is dev-only and never shipped.
-- **In-memory store.** The per-PO lock protects one Node process. A multi-instance deployment needs a database row lock or unique constraint. Deploy a single always-on instance.
-- **Not exercised against live PayPal Sandbox.** Order/capture/refund were exercised against a mocked `fetch` and in SIMULATION mode. Run one real Sandbox checkout before quoting live results.
-- **Production configuration.** `next start` without `RECEIPT_SIGNING_SECRET` fails closed on `RUN_CYCLE` and `/api/receipt` by design. `render.yaml` generates the secret; any other host must set it.
-
+- **Production configuration.** `RECEIPT_SIGNING_SECRET` and `AUTH_SECRET` must be set; without them the app fails closed by design. `render.yaml` provides both.
 ## Verification matrix (exact branch state)
 
 | Gate | Command | Result |
@@ -54,11 +60,11 @@ Note on AUD-011: the bad-id test passes "before" only because `git stash -- src`
 | Clean install | `npm ci` | PASS |
 | Types | `npx tsc --noEmit` | PASS (exit 0) |
 | Lint | `npm run lint` | PASS (exit 0) |
-| Unit and integration | `npm test` | PASS, 254/254 in 23 files |
+| Unit and integration | `npm test` | PASS, 269/269 in 25 files (after merging `origin/main`) |
 | Regression proof | `vitest run tests/audit-regressions.test.ts` with `src` stashed | 19/21 fail before, 21/21 pass after |
 | Eval | `npm run eval` | 24/24, $0.00 unsafe spend |
 | Build | `npm run build` | PASS (50 static pages) |
 | Dependency audit | `npm audit` | 0 critical, 0 high, 7 moderate (dev-only) |
-| Runtime smoke | `next start` + HTTP walk of the judge journey | PASS (see method, step 4) |
+| Runtime smoke | `npm run smoke` against `next start` | PASS, 20/20 |
 | Browser E2E / axe | n/a | **NOT RUN.** No browser automation in this repo or environment; UI fixes need a manual check. |
-| Live PayPal Sandbox | n/a | **NOT RUN.** No sandbox credentials used, by policy. |
+| Live PayPal Sandbox | `npm run sandbox:verify` | **NOT RUN.** No Sandbox credentials in this environment. Verified that it refuses SIMULATION mode with exit 1 and writes nothing. |
