@@ -1,6 +1,7 @@
 # RestockPilot ☕🛒
 ### Autonomous Café Inventory Replenishment & Verified PayPal Purchasing Agent
-**Submission for the PayPal AI Hackathon 2026**
+**Submission for the PayPal AI Hackathon 2026**  
+**Live app:** https://verisettle-web-h9g0.onrender.com (login: `/login`, sign up: `/signup`)
 
 > **Official Pitch:** *"Turn café inventory and sales into an AI-prioritized restock plan, review every quantity within your budget, and approve a PayPal sandbox purchase."*  
 > **Core Architecture:** *"Your café never runs out, and your agent never overspends. AI proposes, deterministic code decides, the owner approves, and PayPal verifies."*

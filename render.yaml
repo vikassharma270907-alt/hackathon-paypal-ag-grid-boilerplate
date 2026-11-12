@@ -38,14 +38,14 @@ services:
       - key: AUTH_SECRET
         generateValue: true
       # Optional Google sign-in. Add the redirect URI
-      # https://<your-domain>/api/auth/google/callback to the Google OAuth client.
+      # https://verisettle-web-h9g0.onrender.com/api/auth/google/callback to the Google OAuth client.
       - key: GOOGLE_CLIENT_ID
         sync: false
       - key: GOOGLE_CLIENT_SECRET
         sync: false
-      # Public URL used for auth redirects, e.g. https://verisettle-web.onrender.com (no trailing slash).
+      # Public URL used for all login / signup / Google OAuth redirects (no trailing slash).
       - key: APP_BASE_URL
-        sync: false
+        value: https://verisettle-web-h9g0.onrender.com
       # Operator credential for privileged/mutating API routes (send as "Authorization: Bearer <key>").
       - key: OPERATOR_API_KEY
         generateValue: true
