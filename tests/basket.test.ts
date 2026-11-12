@@ -85,6 +85,7 @@ describe('basket pure rules', () => {
 
 /** Minimal in-process fake of the PayPal endpoints the basket flow touches. */
 function installFakePayPal(opts: { captureAmountOverride?: string; captureStatus?: number } = {}) {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const calls: Array<{ method: string; path: string; body: Record<string, any> | null; requestId: string | null }> = [];
   const state = { orderStatus: 'PAYER_ACTION_REQUIRED', customId: '', capturedValue: '' };
 
