@@ -27,7 +27,7 @@ const INITIAL_MILESTONES: MilestoneTask[] = [
     dependencyType: 'FS',
     status: 'COMPLETED',
     holdAmountUsd: 735.0,
-    description: '30% deposit placed in PayPal Sandbox escrow hold (intent: AUTHORIZE).',
+    description: '30% deposit placed in PayPal Sandbox authorization hold (intent: AUTHORIZE).',
   },
   {
     id: 'M2',
@@ -82,7 +82,7 @@ export function BryntumGanttPanel() {
           <div>
             <div className="flex items-center gap-2">
               <h2 className="text-sm font-bold text-zinc-100 tracking-wide">
-                Bryntum Escrow Milestone Schedule
+                Bryntum Hold Milestone Schedule
               </h2>
               <span className="text-[10px] bg-zinc-800 text-zinc-300 font-semibold px-2 py-0.5 rounded border border-zinc-700">
                 Finish-to-Start (FS) Dependencies
@@ -200,7 +200,7 @@ export function BryntumGanttPanel() {
               30-Day Treasury Liquidity Forecast
             </h4>
             <p className="text-xs text-zinc-400">
-              Escrow release projection: $2,450.00 current holds. Zero capital drag under Finish-to-Start milestones.
+              Hold release projection: $2,450.00 current holds. Zero capital drag under Finish-to-Start milestones.
             </p>
           </div>
         </div>

@@ -247,7 +247,7 @@ function ReportsDashboard({ data, licenseKey, aiModels }: DashboardProps) {
             </div>
           </Link>
           <span className="text-xs text-zinc-400 hidden xl:inline">
-            Autonomous B2B Escrow, Multimodal 3-Way Reconciliation &amp; Dispute Defense
+            Proof-Gated B2B Settlement, Multimodal 3-Way Reconciliation &amp; Dispute Defense
           </span>
 
           {/* Quick Links to newly integrated workspaces */}
@@ -352,7 +352,7 @@ function ReportsDashboard({ data, licenseKey, aiModels }: DashboardProps) {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             <div className="bg-[#121215] border border-zinc-800 hover:border-zinc-700 rounded-xl p-4 shadow-sm transition-colors">
               <div className="flex items-center justify-between text-zinc-400 text-xs mb-1">
-                <span>Active Escrow Under Hold</span>
+                <span>Active Authorization Holds</span>
                 <DollarSign className="w-4 h-4 text-zinc-300" />
               </div>
               <div className="text-2xl font-bold font-mono text-white">$2,450.00</div>
@@ -399,12 +399,12 @@ function ReportsDashboard({ data, licenseKey, aiModels }: DashboardProps) {
             </div>
           </div>
 
-          {/* Recharts Data Visualization: Escrow Velocity & Risk Distribution */}
+          {/* Recharts Data Visualization: Hold Velocity & Risk Distribution */}
           <div className="bg-[#121215] border border-zinc-800 rounded-2xl p-5 shadow-sm space-y-4">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 border-b border-zinc-800 pb-3">
               <div>
                 <h2 className="text-base font-bold text-white flex items-center gap-2">
-                  <span>Executive Escrow Analytics &amp; Settlement Velocity</span>
+                  <span>Executive Hold Analytics &amp; Settlement Velocity</span>
                   <span className="text-[10px] font-mono text-zinc-300 bg-zinc-850 border border-zinc-700 px-2 py-0.5 rounded">
                     Recharts Visualization
                   </span>
@@ -483,7 +483,7 @@ function ReportsDashboard({ data, licenseKey, aiModels }: DashboardProps) {
           {/* Section 1: AG Grid 10-Table Relational Ledger */}
           <RelationalTableWorkspace data={data} />
 
-          {/* Section 2: Bryntum Gantt Escrow Milestone Schedule */}
+          {/* Section 2: Bryntum Gantt Hold Milestone Schedule */}
           <BryntumGanttPanel />
 
           {/* Section 3: Channel3 Multi-Merchant Catalog Discovery & Anomaly Z-Score Explorer */}

@@ -320,7 +320,7 @@ export function FloatingDevTools() {
                   <div className="flex items-center gap-2">
                     <Play className="w-3.5 h-3.5 fill-current text-zinc-300" />
                     <div>
-                      <div className="font-semibold text-[11px] text-zinc-100">1-Click Escrow Auth Hold</div>
+                      <div className="font-semibold text-[11px] text-zinc-100">1-Click Authorization Hold</div>
                       <div className="text-[10px] text-zinc-400">Orders v2 intent: AUTHORIZE ($2,450.00)</div>
                     </div>
                   </div>

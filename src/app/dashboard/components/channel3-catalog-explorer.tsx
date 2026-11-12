@@ -163,7 +163,7 @@ export function Channel3CatalogExplorer() {
               </span>
             </div>
             <p className="text-xs text-zinc-400">
-              Universal product discovery and merchant price distributions powering the 3-Way Match &amp; Escrow Anomaly Z-Score
+              Universal product discovery and merchant price distributions powering the 3-Way Match &amp; Hold Anomaly Z-Score
             </p>
           </div>
         </div>
@@ -286,7 +286,7 @@ export function Channel3CatalogExplorer() {
 
             {/* Norm Stat 3: Anomaly Z-Score */}
             <div className="p-3 bg-[#121215] rounded-lg border border-zinc-800">
-              <span className="text-zinc-400 text-[11px] block">Escrow Anomaly Z-Score</span>
+              <span className="text-zinc-400 text-[11px] block">Hold Anomaly Z-Score</span>
               <div className="flex items-center gap-2">
                 <span
                   className={`text-xl font-bold font-mono ${
