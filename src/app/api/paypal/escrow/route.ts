@@ -8,10 +8,36 @@ import {
   getAuthorizationDetails,
 } from "@/lib/paypal-escrow-disputes";
 import { evaluatePolicyFirewall } from "@/lib/policy-firewall";
+import { denyUnlessAuthorized, rejectOversizedBody } from "@/lib/api-guard";
+import { isValidMoney } from "@/lib/validation";
 
 export async function POST(req: NextRequest) {
   try {
-    const body = await req.json();
+    const denied = denyUnlessAuthorized(req);
+    if (denied) return denied;
+    const tooLarge = rejectOversizedBody(req, 16_384);
+    if (tooLarge) return tooLarge;
+
+    const body = await req.json().catch(() => null);
+    if (!body || typeof body !== "object") {
+      return NextResponse.json({ error: "Body must be a JSON object." }, { status: 400 });
+    }
+    // Money inputs are untrusted: they must be positive, finite, 2-decimal amounts.
+    for (const field of ["amountValue", "verifiedCaptureAmount", "layoutlmInvoiceTotalUsd"] as const) {
+      if (body[field] !== undefined && !isValidMoney(body[field])) {
+        return NextResponse.json({ error: `${field} must be a positive amount with at most 2 decimals.` }, { status: 400 });
+      }
+    }
+    if (body.comprehensiveRiskScore !== undefined) {
+      const risk = Number(body.comprehensiveRiskScore);
+      if (!Number.isFinite(risk) || risk < 0 || risk > 1) {
+        return NextResponse.json({ error: "comprehensiveRiskScore must be between 0 and 1." }, { status: 400 });
+      }
+    }
+    // The PayPal-Mock-Response test header must never be reachable on a production path.
+    if (body.mockErrorHeader !== undefined && process.env.NODE_ENV === "production") {
+      return NextResponse.json({ error: "mockErrorHeader is not allowed in production." }, { status: 400 });
+    }
     const {
       action,
       amountValue = "2450.00",
@@ -42,14 +68,16 @@ export async function POST(req: NextRequest) {
         promptText,
       });
 
-      if (!policyCheck.allowed && policyCheck.status === "BLOCKED_PROMPT_INJECTION") {
+      // Fail closed: any non-allowed policy result stops authorization, not only prompt injection.
+      if (!policyCheck.allowed) {
+        const injection = policyCheck.status === "BLOCKED_PROMPT_INJECTION";
         return NextResponse.json(
           {
-            error: "Prompt Injection Blocked by Spend Firewall",
+            error: injection ? "Prompt Injection Blocked by Spend Firewall" : "Authorization Blocked by Policy Firewall",
             reasons: policyCheck.reasons,
             status: policyCheck.status,
           },
-          { status: 403 }
+          { status: injection ? 403 : 422 }
         );
       }
 
@@ -153,6 +181,27 @@ export async function POST(req: NextRequest) {
 
       // Settle hold via PayPal Authorizations v2
       const effectiveCaptureAmount = policyCheck.allowedCaptureAmountUsd.toFixed(2);
+
+      // Cap against PayPal's own record of the authorization: a client-supplied amount can never
+      // exceed what the payer actually authorized (compared in integer cents).
+      if (action === "CAPTURE") {
+        const { data: authData, trace: authTrace } = await getAuthorizationDetails(accessToken, authorizationId);
+        const authorized = (authData as { amount?: { value?: string } } | null)?.amount?.value;
+        if (authTrace.status < 400 && authorized !== undefined) {
+          const authorizedCents = Math.round(Number(authorized) * 100);
+          const captureCents = Math.round(Number(effectiveCaptureAmount) * 100);
+          if (!Number.isFinite(authorizedCents) || captureCents > authorizedCents) {
+            return NextResponse.json(
+              {
+                error: "Capture amount exceeds the amount PayPal reports as authorized.",
+                authorizedAmount: authorized,
+                requestedAmount: effectiveCaptureAmount,
+              },
+              { status: 422 }
+            );
+          }
+        }
+      }
       const { data, trace } = await settleAuthorizationHold(
         accessToken,
         authorizationId,

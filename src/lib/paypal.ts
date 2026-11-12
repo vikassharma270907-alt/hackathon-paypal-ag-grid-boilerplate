@@ -651,11 +651,41 @@ export async function captureApprovedOrder(
     throw new Error(`PO or Claim ${poId} not found in RestockPilot store`);
   }
 
+  // Ownership binding: only the order created for THIS purchase order may be captured. The caller-
+  // supplied id is never trusted to choose the execution mode.
+  if (!claim.paypalOrderId || claim.paypalOrderId !== paypalOrderId) {
+    throw new Error(`Order id does not match the order created for ${poId}; capture refused`);
+  }
+
+  // Replay safety: a second capture request must not double-count spend or on-order stock.
+  if (claim.status === 'CAPTURED') {
+    return {
+      success: true,
+      poId,
+      paypalOrderId,
+      paypalCaptureId: claim.paypalCaptureId,
+      paypalFee: claim.paypalFee,
+      status: 'COMPLETED',
+      paypalRequestIdCapture: claim.paypalRequestIdCapture ?? computeSha256(`${poId}:capture:${paypalOrderId}`),
+      message: 'Already captured; no new capture was made.',
+    };
+  }
+  const CAPTURABLE_STATUSES = ['AWAITING_BUYER_APPROVAL', 'UNKNOWN', 'CAPTURE_PENDING'];
+  if (!CAPTURABLE_STATUSES.includes(claim.status)) {
+    throw new Error(`Claim ${poId} is ${claim.status}; only an approved, uncaptured order can be captured`);
+  }
+
   const token = await getPayPalAccessToken();
-  const isSimulated = getExecutionMode() === 'SIMULATED' || isUsingSimulatedToken() || token.startsWith('simulated_');
+  // Simulation comes from server state only: execution mode, simulated token, or a claim that was
+  // itself created in simulation. Never from the request.
+  const isSimulated =
+    getExecutionMode() === 'SIMULATED' ||
+    isUsingSimulatedToken() ||
+    token.startsWith('simulated_') ||
+    claim.paypalOrderId.startsWith('SIMULATED_');
   const paypalRequestIdCapture = computeSha256(`${poId}:capture:${paypalOrderId}`);
 
-  if (isSimulated || paypalOrderId.startsWith('SIMULATED_')) {
+  if (isSimulated) {
     const simulatedCaptureId = `SIMULATED_CAP_${poId.replace(/[^a-zA-Z0-9]/g, '')}_${Date.now().toString(36)}`;
     claim.status = 'CAPTURED';
     claim.paypalCaptureId = simulatedCaptureId;

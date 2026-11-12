@@ -19,6 +19,7 @@ import {
 
 interface HealthData {
   status: string;
+  paypalMode?: 'SANDBOX' | 'SIMULATED';
   totalLatencyMs?: number;
   services?: {
     paypal?: { status: string; environment?: string; isSimulated?: boolean; message?: string };
@@ -114,7 +115,7 @@ export function FloatingDevTools() {
         body: JSON.stringify({ testType }),
       });
       const data = await res.json();
-      setLastAction(data);
+      setLastAction(res.ok ? data : { error: data?.error || `Request failed (HTTP ${res.status})` });
       setActiveTab('trace');
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
@@ -126,9 +127,13 @@ export function FloatingDevTools() {
   };
 
   const copyToClipboard = (text: string) => {
-    navigator.clipboard.writeText(text);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+    navigator.clipboard
+      .writeText(text)
+      .then(() => {
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+      })
+      .catch(() => setCopied(false));
   };
 
   return (
@@ -140,7 +145,9 @@ export function FloatingDevTools() {
             setIsOpen(true);
             fetchHealth();
           }}
-          className="group flex items-center gap-2 bg-[#121215]/95 hover:bg-[#18181b] text-zinc-100 px-3.5 py-2 rounded-full border border-zinc-700/80 shadow-2xl backdrop-blur-md transition-all duration-200 hover:scale-105 hover:border-zinc-500 cursor-pointer"
+          className="group flex items-center gap-2 bg-[#121215]/95 hover:bg-[#18181b] text-zinc-100 px-3.5 py-2 rounded-full border border-zinc-700/80 shadow-2xl backdrop-blur-md transition-all duration-200 hover:scale-105 hover:border-zinc-500 cursor-pointer focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zinc-200"
+          aria-label="Open VeriSettle DevTools (Alt+D)"
+          aria-expanded={isOpen}
           title="Click or press Alt+D to open VeriSettle DevTools"
         >
           <div className="relative flex items-center justify-center">
@@ -250,7 +257,7 @@ export function FloatingDevTools() {
                     </div>
                   </div>
                   <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-zinc-800 text-zinc-200 border border-zinc-700">
-                    SANDBOX ACTIVE
+                    {health?.paypalMode ?? 'MODE UNKNOWN'}
                   </span>
                 </div>
 
@@ -266,7 +273,7 @@ export function FloatingDevTools() {
                     </div>
                   </div>
                   <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-zinc-800 text-zinc-200 border border-zinc-700">
-                    ONLINE
+                    NOT PROBED
                   </span>
                 </div>
 
@@ -280,7 +287,7 @@ export function FloatingDevTools() {
                     </div>
                   </div>
                   <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-zinc-800 text-zinc-200 border border-zinc-700">
-                    CONNECTED
+                    NOT PROBED
                   </span>
                 </div>
 
@@ -294,7 +301,7 @@ export function FloatingDevTools() {
                     </div>
                   </div>
                   <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-zinc-800 text-zinc-200 border border-zinc-700">
-                    READY
+                    NOT PROBED
                   </span>
                 </div>
               </div>

@@ -22,7 +22,7 @@ import {
 export default function AvailabilityPage() {
   const [services, setServices] = useState<ServiceHealth[]>(() => getSystemHealth());
   const [loading, setLoading] = useState(false);
-  const [lastCheckTime, setLastCheckTime] = useState<string>(() => new Date().toLocaleTimeString());
+  const [lastCheckTime, setLastCheckTime] = useState<string>(''); // set only after a client-side check, so SSR and hydration render identical text
 
   const handleRefresh = async () => {
     setLoading(true);

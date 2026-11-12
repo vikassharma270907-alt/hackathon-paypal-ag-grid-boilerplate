@@ -117,6 +117,10 @@ export async function getPayPalAccessToken(forceRefresh = false): Promise<string
       }
 
       const errText = await res.text();
+      if (res.status === 401 && process.env.NODE_ENV === "production") {
+        // Fail closed: configured-but-rejected credentials must never degrade into fake IDs in production.
+        throw new PayPalAuthError(res.status, "/v1/oauth2/token", "Client credentials were rejected");
+      }
       if (res.status === 401) {
         // Log clean diagnostic warning (no secrets printed)
         console.warn(
@@ -137,6 +141,9 @@ export async function getPayPalAccessToken(forceRefresh = false): Promise<string
       if (attempt < MAX_ATTEMPTS) {
         await new Promise((resolve) => setTimeout(resolve, Math.pow(2, attempt) * 250));
         continue;
+      }
+      if (process.env.NODE_ENV === "production") {
+        throw new Error("PayPal OAuth is unreachable; refusing to fall back to simulation in production.");
       }
       // If network unreachable in dev/test, fallback to simulated
       cachedToken = {
