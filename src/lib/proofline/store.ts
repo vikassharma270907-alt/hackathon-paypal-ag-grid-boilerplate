@@ -391,7 +391,7 @@ Delivery target is December 15, 2026. Please confirm!`;
 // Global singleton instance
 const globalForProofline = globalThis as unknown as { prooflineStore?: ProoflineStore };
 export const prooflineStore = globalForProofline.prooflineStore || new ProoflineStore();
-if (process.env.NODE_ENV !== 'production') {
-  globalForProofline.prooflineStore = prooflineStore;
-}
+// Pin on globalThis in all environments so API routes and server-rendered pages
+// (which may be bundled separately) share one in-memory store.
+globalForProofline.prooflineStore = prooflineStore;
 
